@@ -1,0 +1,541 @@
+let itemsInBom = [];
+let checkCallBom = 0;
+
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+//get dept_cd current account
+$("#DUMMY10").val("");
+var data = {};
+data.type = "cust_btn10";
+data.menucode = "M000000221";
+data.UID = $("#UID").val();
+
+$.ajax({
+  type: "POST",
+  url: "/ajax.do",
+  data: data,
+  success: function (response, status, request) {
+    if (status === "success") {
+      $("#DUMMY10").val(response.trim());
+    }
+  },
+  error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["order_cd"]]);
+  }
+});
+//check grid1 auto check grid1_1
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["progress_status"]] !== "completed") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+
+//handle jump to delivery
+$("#cust_btn3").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      //obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.estimate_cd = gd1[i][itmobj1["estimate_cd"]];
+      obj.order_cd = gd1[i][itmobj1["order_cd"]];
+      obj.order_type = gd1[i][itmobj1["order_type"]];
+      obj.sale_type = gd1[i][itmobj1["sale_type"]];
+      obj.order_date = gd1[i][itmobj1["order_date"]];
+      obj.expected_delivery_date = gd1[i][itmobj1["expected_delivery_date"]];
+      obj.delivery_place = gd1[i][itmobj1["delivery_place"]];
+      obj.cust_cd = gd1[i][itmobj1["cust_cd"]];
+      obj.cust_nm = gd1[i][itmobj1["cust_nm"]];
+      obj.cust_manager = gd1[i][itmobj1["cust_manager"]];
+      obj.cust_phone_no = gd1[i][itmobj1["cust_phone_no"]];
+      obj.cust_email = gd1[i][itmobj1["cust_email"]];
+      obj.cust_purch_manager = gd1[i][itmobj1["cust_purch_manager"]];
+      obj.cust_purch_phone_no = gd1[i][itmobj1["cust_purch_phone_no"]];
+      obj.cust_purch_email = gd1[i][itmobj1["cust_purch_email"]];
+      obj.dept_cd = gd1[i][itmobj1["dept_cd"]];
+      obj.manager_id = gd1[i][itmobj1["manager_id"]];
+      obj.have_tax = gd1[i][itmobj1["have_tax"]];
+      obj.order_no = gd1[i][itmobj1["order_no"]];
+      obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.equip_yn = gd1[i][itmobj1["equip_yn"]];
+      obj.cust_delivery_nm = gd1[i][itmobj1["cust_delivery_nm"]];
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+      if (nvl(gd11[i][itmobj2["progress_qty"]], 0) !== 0 && (+gd11[i][itmobj2["order_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0)) <= 0) {
+        msg(`데이터가 완성되었습니다.`, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.order_cd = gd11[i][itmobj2["order_cd"]];
+      obj.order_seq = gd11[i][itmobj2["order_seq"]];
+      obj.project_cd = gd11[i][itmobj2["project_cd"]];
+      obj.wh_cd = gd11[i][itmobj2["wh_cd"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.item_type_nm = gd11[i][itmobj2["item_type_nm"]];
+      obj.p_item_cd = gd11[i][itmobj2["p_item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.order_qty = +gd11[i][itmobj2["order_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0);
+      obj.order_price = gd11[i][itmobj2["order_price"]];
+      obj.supply_amt = +gd11[i][itmobj2["order_price"]]*obj.order_qty;
+      obj.vat_amt = gd1[0][itmobj1["have_tax"]] === "tax" ? obj.supply_amt * 0.1 : 0;
+      obj.order_amt = obj.supply_amt + obj.vat_amt;
+      obj.progress_qty = gd11[i][itmobj2["progress_qty"]];
+      obj.progress_status = gd11[i][itmobj2["progress_status"]];
+      gd11Convert.push(obj);
+    }
+    localStorage.setItem("orderGrid1", JSON.stringify(gd1Convert));
+    localStorage.setItem("orderGrid11", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000000227_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000000227").trigger("click");
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});
+
+//handle jump to purchase request
+$("#cust_btn4").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      //obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.estimate_cd = gd1[i][itmobj1["estimate_cd"]];
+      obj.order_cd = gd1[i][itmobj1["order_cd"]];
+      obj.order_type = gd1[i][itmobj1["order_type"]];
+      obj.sale_type = gd1[i][itmobj1["sale_type"]];
+      obj.order_date = gd1[i][itmobj1["order_date"]];
+      obj.expected_delivery_date = gd1[i][itmobj1["expected_delivery_date"]];
+      obj.delivery_place = gd1[i][itmobj1["delivery_place"]];
+      obj.cust_cd = gd1[i][itmobj1["cust_cd"]];
+      obj.cust_nm = gd1[i][itmobj1["cust_nm"]];
+      obj.cust_manager = gd1[i][itmobj1["cust_manager"]];
+      obj.cust_phone_no = gd1[i][itmobj1["cust_phone_no"]];
+      obj.cust_email = gd1[i][itmobj1["cust_email"]];
+      obj.cust_purch_manager = gd1[i][itmobj1["cust_purch_manager"]];
+      obj.cust_purch_phone_no = gd1[i][itmobj1["cust_purch_phone_no"]];
+      obj.cust_purch_email = gd1[i][itmobj1["cust_purch_email"]];
+      obj.dept_cd = gd1[i][itmobj1["dept_cd"]];
+      obj.manager_id = gd1[i][itmobj1["manager_id"]];
+      obj.have_tax = gd1[i][itmobj1["have_tax"]];
+      obj.tot_supply_amt = gd1[i][itmobj1["tot_supply_amt"]];
+      obj.tot_vat_amt = gd1[i][itmobj1["tot_vat_amt"]];
+      obj.tot_order_amt = gd1[i][itmobj1["tot_order_amt"]];
+      obj.order_no = gd1[i][itmobj1["order_no"]];
+      obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.equip_yn = gd1[i][itmobj1["equip_yn"]];
+      obj.cust_delivery_nm = gd1[i][itmobj1["cust_delivery_nm"]];
+      gd1Convert.push(obj);
+    }
+    
+    const order_cd_list = gd1Convert.map(obj => obj.order_cd);
+    
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.order_cd = gd11[i][itmobj2["order_cd"]];
+      obj.order_seq = gd11[i][itmobj2["order_seq"]];
+      obj.project_cd = gd11[i][itmobj2["project_cd"]];
+      obj.wh_cd = gd11[i][itmobj2["wh_cd"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.p_item_cd = gd11[i][itmobj2["p_item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.qty = gd11[i][itmobj2["order_qty"]];
+      obj.order_price = gd11[i][itmobj2["order_price"]];
+      obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
+      obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
+      obj.order_amt = gd11[i][itmobj2["order_amt"]];
+      obj.progress_qty = gd11[i][itmobj2["progress_qty"]];
+      obj.progress_status = gd11[i][itmobj2["progress_status"]];
+      obj.available_stock = gd11[i][itmobj2["available_stock"]];
+      obj.surplus = gd11[i][itmobj2["surplus"]];
+      gd11Convert.push(obj);
+      
+    }
+    
+    // if have order_cd in PurchaseRequest then show confirm else do nothing
+    validateBeforeJumpPurchaseRequest(order_cd_list).then((response)=>{
+        response =  JSON.parse(response.trim());
+        if(response.length > 0){
+            if(confirm("수주번호가 중복되었습니다! 계속하시겠습니까?")){
+                itemsInBom = [];
+                checkCallBom = gd11Convert.length;
+                callItemInBom(gd1Convert, gd11Convert, true, response);
+            }
+        }else
+            {
+                itemsInBom = [];
+                checkCallBom = gd11Convert.length;
+                callItemInBom(gd1Convert, gd11Convert, true);
+            }
+
+    })
+       
+    
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+  
+});
+
+async function callItemInBom(parents, items, is_first = false, data_purchase_request = []) {
+    let check = 0;
+    for (let i = 0; i < items.length; i++) {
+        var data = {};
+        data.type = "cust_btn4";
+        data.menucode = "M000000223";
+        data.item_cd = items[i].item_cd;
+        data.comp_cd = items[i].comp_cd;
+        data.factory_cd = items[i].factory_cd;
+        data.qty = items[i].qty;
+        await $.ajax({
+          type: "POST",
+          url: "/ajax.do",
+          data: data,
+          success: function (response, status, request) {
+            if (status === "success") {
+              const data = JSON.parse(response.trim());
+              if (data.length > 0) {
+                  callItemInBom(parents, data, null, data_purchase_request)
+              } else {
+                  if (is_first && nvl(sessionStorage.getItem("sOrderGrid_missing_error_msg"),"") === "") {
+                      sessionStorage.setItem("sOrderGrid_missing_error_msg", "BOM에 등록되어 있지 않은 품목이 존재합니다!");
+                  }
+                  if (nvl(items[i]["item_type"],"") !== "" && nvl(items[i]["item_type"],"") != "ITEM01" && nvl(items[i]["item_type"],"") != "ITEM02") {
+                    itemsInBom.push(items[i]);
+                  }
+                  if (is_first) {
+                      checkCallBom -= 1;
+                  } else {
+                      check += 1;
+                      if (items.length == check) checkCallBom -= 1;
+                  }
+                  if (checkCallBom === 0) {
+                       
+                      let result = [];
+                      
+
+                      for (let j = 0; j < itemsInBom.length; j++) {
+                          if (j == 0) {
+                              result.push(itemsInBom[j]);
+                              continue;
+                          }
+                          const resultCopy = [...result];
+                          for (let r = 0; r < resultCopy.length; r++) {
+                              if (result[r].item_cd == itemsInBom[j].item_cd) {
+                                  result[r].qty = Number(result[r].qty) + Number(itemsInBom[j].qty);
+                                  continue;
+                              } else {
+                                  if (r == result.length - 1) {
+                                       result.push(itemsInBom[j]);
+                                       continue;
+                                  }
+                              }
+                          }
+                      }
+                      
+                    // if order_cd isset in purchase_request then calculator again qty before jump
+                    if(data_purchase_request.length > 0){
+                        result.map((e, i)=>{
+                            const purchase_request = data_purchase_request.find((value)=>{
+                                return value.item_cd == e.item_cd;
+                            });
+                            
+                            if(typeof purchase_request != "undefined"){
+                                if(e.qty > purchase_request.request_qty){
+                                    e.qty -= purchase_request.request_qty;
+                                }else{
+                                    result[i].qty = 0;
+                                }
+                            }
+                            
+                        });
+                    }
+                    if (result.length === 0 && nvl(sessionStorage.getItem("sOrderGrid_error_msg"),"") === "") {
+                        sessionStorage.setItem("sOrderGrid_error_msg", "해당 품목은 BOM에서 등록되지 않습니다!");
+                    }
+                    
+                    localStorage.setItem("sOrderGrid1", JSON.stringify(parents));
+                    localStorage.setItem("sOrderGrid11", JSON.stringify(result));
+                    parent.$(".right-menu1 #M000000231_li .ui-closable-tab").trigger("click");
+                    parent.$(".left-menu #M000000231").trigger("click");
+                  }
+              }
+            }
+          },
+          error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+        });
+    }
+}
+
+async function validateBeforeJumpPurchaseRequest(order_cd_list){
+    
+    data.type = "getPurchaseRequestByOrderCD";
+    data.header = JSON.stringify(order_cd_list);
+    data.menucode = "M000000223";
+    return  $.ajax({
+              type: "POST",
+              url: "/ajax.do",
+              data: data,
+              success: function (response, status, request) {
+                // response =  JSON.parse(response.trim());
+                // return response.length;
+              },
+              error: function (xmlHttpRequest, txtStatus, errorThrown) {
+                  console.log("Error when validate before jump purchase request " + errorThrown);
+              },
+            });
+}
+
+//end
+
+//handle jump to production plan
+$("#cust_btn5").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length === 1) {
+      let obj = {};
+      
+      obj.comp_cd = gd11[0][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[0][itmobj2["factory_cd"]];
+      obj.order_cd = gd11[0][itmobj2["order_cd"]];
+      obj.order_seq = gd11[0][itmobj2["order_seq"]];
+      obj.project_cd = gd11[0][itmobj2["project_cd"]];
+      obj.order_date = gd1[0][itmobj1["order_date"]];
+      obj.item_cd = gd11[0][itmobj2["item_cd"]];
+      obj.item_no = gd11[0][itmobj2["item_no"]];
+      obj.item_nm = gd11[0][itmobj2["item_nm"]];
+      obj.spec = gd11[0][itmobj2["spec"]];
+      obj.unit = gd11[0][itmobj2["unit"]];
+      obj.order_qty = gd11[0][itmobj2["order_qty"]];
+      obj.cust_cd = gd1[0][itmobj1["cust_cd"]];
+      obj.cust_nm = gd1[0][itmobj1["cust_nm"]];
+          obj.expected_delivery_date = gd1[0][itmobj1["expected_delivery_date"]];
+            obj.plan_to = gd1[0][itmobj1["expected_delivery_date"]];
+      validateBeforeJumpProductRequestManagement([obj.order_cd]).then((response)=>{
+        
+        response = JSON.parse(response.trim());
+        // if order_cd isset in prod_plan then calculator again qty before jump
+        if(response.length > 0){
+            if(confirm("수주번호가 중복되었습니다! 계속하시겠습니까?")){
+                const prod_plan = response.find((value)=>{
+                    return value.item_cd == obj.item_cd;
+                });
+                
+                if(typeof prod_plan != "undefined"){
+                    if(obj.order_qty > prod_plan.qty){
+                        obj.order_qty -= prod_plan.qty;
+                    }else{
+                        obj.order_qty = 0;
+                    }
+                }
+                
+                localStorage.setItem("productionPlan", JSON.stringify(obj));
+                parent.$(".right-menu1 #M000002340_li .ui-closable-tab").trigger("click"); // M000002378
+                parent.$(".left-menu #M000002340").trigger("click");
+                // parent.$(".left-menu #M000002378").trigger("click");
+            }
+            
+                
+        }else{
+                localStorage.setItem("productionPlan", JSON.stringify(obj));
+                parent.$(".right-menu1 #M000002340_li .ui-closable-tab").trigger("click"); // M000002378
+                parent.$(".left-menu #M000002340").trigger("click");
+                // parent.$(".left-menu #M000002378").trigger("click");
+        }
+          
+        
+        
+      });
+     
+      
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});
+
+async function validateBeforeJumpProductRequestManagement(order_cd_list){
+    
+    data.type = "getProdPlanByOrderCD";
+    data.header = JSON.stringify(order_cd_list);
+    data.menucode = "M000000223";
+    return  $.ajax({
+              type: "POST",
+              url: "/ajax.do",
+              data: data,
+              success: function (response, status, request) {
+                // response =  JSON.parse(response.trim());
+                // return response.length;
+              },
+              error: function (xmlHttpRequest, txtStatus, errorThrown) {
+                  console.log("Error when validate before jump production request management " + errorThrown);
+              },
+            });
+}
+
+//handle jump button from estimate
+let estimateGrid1 = localStorage.getItem("estimateGrid1");
+let estimateGrid11 = localStorage.getItem("estimateGrid11");
+if (estimateGrid1 && estimateGrid11) {
+  $("#cust_btn1").trigger("click");
+}
+
+//handle jump to invoice
+$("#cust_btn6").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      obj.order_cd = gd1[i][itmobj1["order_cd"]];
+      obj.order_type = gd1[i][itmobj1["order_type"]];
+      obj.sale_type = gd1[i][itmobj1["sale_type"]];
+      obj.cust_cd = gd1[i][itmobj1["cust_cd"]];
+      obj.cust_nm = gd1[i][itmobj1["cust_nm"]];
+      obj.cust_manager = gd1[i][itmobj1["cust_manager"]];
+      obj.cust_phone_no = gd1[i][itmobj1["cust_phone_no"]];
+      obj.cust_email = gd1[i][itmobj1["cust_email"]];
+      obj.cust_purch_manager = gd1[i][itmobj1["cust_purch_manager"]];
+      obj.cust_purch_phone_no = gd1[i][itmobj1["cust_purch_phone_no"]];
+      obj.cust_purch_email = gd1[i][itmobj1["cust_purch_email"]];
+      obj.dept_cd = gd1[i][itmobj1["dept_cd"]];
+      obj.manager_id = gd1[i][itmobj1["manager_id"]];
+      obj.have_tax = gd1[i][itmobj1["have_tax"]];
+      obj.order_no = gd1[i][itmobj1["order_no"]];
+      obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.equip_yn = gd1[i][itmobj1["equip_yn"]];
+      obj.cust_delivery_nm = gd1[i][itmobj1["cust_delivery_nm"]];
+      obj.tot_supply_amt = gd1[i][itmobj1["tot_supply_amt"]];
+      obj.tot_order_amt = gd1[i][itmobj1["tot_order_amt"]];
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+        if (!gd11[i][itmobj2["item_cd"]]) {
+        msg("제품을 업데이트하십시오.", null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+      
+      if (nvl(gd11[i][itmobj2["progress_status"]], "") == "completed") {
+        msg(`제품 ${gd11[i][itmobj2["item_cd"]]} 가 완료되었습니다.`, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+        
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.order_cd = gd11[i][itmobj2["order_cd"]];
+      obj.order_seq = gd11[i][itmobj2["order_seq"]];
+      obj.project_cd = gd11[i][itmobj2["project_cd"]];
+      obj.wh_cd = gd11[i][itmobj2["wh_cd"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.order_qty = +gd11[i][itmobj2["order_qty"]];
+      obj.order_price = gd11[i][itmobj2["order_price"]];
+      obj.supply_amt = +gd11[i][itmobj2["order_price"]]*obj.order_qty;
+      obj.vat_amt = gd1[0][itmobj1["have_tax"]] === "tax" ? obj.supply_amt * 0.1 : 0;
+      obj.order_amt = obj.supply_amt + obj.vat_amt;
+      gd11Convert.push(obj);
+    }
+    localStorage.setItem("invoiceGrid1", JSON.stringify(gd1Convert));
+    localStorage.setItem("invoiceGrid11", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000002346_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000002346").trigger("click");
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});

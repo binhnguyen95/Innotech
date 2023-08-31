@@ -1,0 +1,32 @@
+SELECT
+{dept_srch} as dept_srch,
+{manager_srch} as manager_srch,
+{status_srch} as status_srch,
+{prod_item_srch} as prod_item_srch,
+b.status,
+CASE
+    WHEN b.status = 'confirm' THEN concat('<span class="form-circle-sm" style="background-color:#0063B2;"><span style="color:white;">', st.code_value, '</span</span>')
+    WHEN b.status = 'pending' THEN concat('<span class="form-circle-sm" style="background-color:#fca326;"><span style="color:white;">', st.code_value, '</span</span>')
+    ELSE concat('<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">', st.code_value, '</span</span>')
+END AS progress_status_nm,
+a.prod_item_cd,
+c.item_nm as prod_item_nm,
+b.manager_id,
+f.USERNAME,
+b.dept_cd,
+e.DEPTNM,
+b.c_item_cd,
+d.item_nm as c_item_nm,
+b.qty
+FROM tb_ma_bom_prod a
+LEFT JOIN tb_ma_bom b on a.prod_item_cd = b.prod_item_cd
+LEFT JOIN vw_ma_item_semi_or_finished c on a.prod_item_cd = c.item_cd
+LEFT JOIN vw_ma_item_not_finished d on b.c_item_cd = d.item_cd
+LEFT JOIN tb_cm_dept e on b.dept_cd = e.DEPTCD
+left join vw_ma_code_bom_status st on b.status = st.code
+left join tb_cm_usermaster f on b.manager_id = f.UID
+WHERE ISNULL(b.status, 'new') != 'new'
+and (ISNULL({dept_srch}, '') = '' or b.dept_cd = {dept_srch} )
+and (ISNULL({manager_srch}, '') = '' or b.manager_id = {manager_srch} )
+and (ISNULL({status_srch}, '') = '' or b.status = {status_srch} )
+and (ISNULL({prod_item_srch}, '') = '' or a.prod_item_cd like concat('%', {prod_item_srch}, '%') )

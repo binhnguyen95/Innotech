@@ -1,0 +1,257 @@
+SetExcelUploadAjaxCustom();
+$("#search_btn").hide();
+$("#reset_btn").hide();
+$("#detail-addrow").show();
+$("#detail-delrow").show();
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+
+if (nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != "") {
+  $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+  $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+  $("#" + itmobj1["work_order_cd"]).val(DUMMY3);
+  parent.$("#DUMMY1").val("");
+  parent.$("#DUMMY2").val("");
+  parent.$("#DUMMY3").val("");
+  $("#search_btn").trigger("click");
+}
+
+//validate item_cd
+var detail_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_item_cd_column.onBeforeChange = function(event){
+    if (nvl(grid1_1.getRow(event.rowKey)[itmobj2["bom_level"]],"") !== "" || nvl(grid1_1.getRow(event.rowKey)[itmobj2["process_qty"]],0) > 0) {
+      msg("Not change item!");
+      event.stop();
+    }
+}
+//validate qty
+var detail_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["qty"])];
+detail_qty_column.onBeforeChange = function(event){
+    if (nvl(grid1_1.getRow(event.rowKey)[itmobj2["bom_level"]],"") !== "" || nvl(grid1_1.getRow(event.rowKey)[itmobj2["process_qty"]],0) > 0) {
+      msg("Not change quantity!");
+      event.stop();
+    }
+}
+
+//handel delete
+grid1_1.on("check uncheck", function(event) {
+    const checkeds = grid1_1.getCheckedRows();
+    let checkDelete = true;
+    for (let i = 0; i < checkeds.length; i++) {
+        if (nvl(checkeds[i][itmobj2["process_qty"]],0) > 0) {
+            checkDelete = false;
+            break;
+        }
+    }
+    if (checkDelete) {
+        $("#detail-delrow").show()
+    } else {
+        $("#detail-delrow").hide()
+    }
+})
+
+const item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+item_cd_column.onAfterChange = function (event) {
+    if (nvl(event.value,"") !== "") {
+        var data = {};
+        data.type = "get_qty";
+        data.menucode = "M000002343";
+        
+        data.item_cd = event.value;
+        
+        $.ajax({
+        type: "POST",
+        url: "/ajax.do",
+        data: data,
+        success: function(response, status, request) {
+            console.log(typeof response)
+            grid1_1.setValue(event.rowKey, itmobj2["available_stock"], response.trim())
+        },
+        error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+            
+        });
+    }
+};
+
+const detail_wh_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["wh_cd"])];
+detail_wh_cd_column.onAfterChange = function (event) {
+    const item_cd = nvl(grid1_1.getValue(event.rowKey, itmobj2["item_cd"]), "");
+    if (nvl(event.value,"") !== "" && item_cd !== "") {
+        var data = {};
+        data.type = "get_use_qty_of_wh";
+        data.menucode = "M000002343";
+        
+        data.wh_cd = event.value;
+        data.item_cd = item_cd;
+        
+        $.ajax({
+        type: "POST",
+        url: "/ajax.do",
+        data: data,
+        success: function(response, status, request) {
+            grid1_1.setValue(event.rowKey, itmobj2["available_stock"], response.trim())
+        },
+        error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+            
+        });
+    } else {
+        grid1_1.setValue(event.rowKey, itmobj2["available_stock"], "0")
+    }
+};
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function () {
+  if ($(this).val() == "Y") {
+    $(this).val("N");
+    parent.$("#search_btn").trigger("click");
+    parent.$("#NMODModal").dialog("destroy");
+  }
+});
+
+function SetExcelUploadAjaxCustom() {
+    $("#ExcelModal_Save").parent().append("<button class=\"menuadd-btn\" id=\"ExcelModal_Save_Check\">적용</button>");
+    $("#ExcelModal_Save").hide();
+    
+    $("#ExcelModal_Save_Check").click(function(){
+        var excelData = JSON.parse($("#EXCELJSON").val());
+        
+        var cols = grid_excelup.getColumns();
+        
+        var dataArr = [];
+        
+        for(var i = 0; i < excelData.length; i++) {
+            var obj = {};
+            
+            Object.keys(excelData[i]).forEach(function(key){
+                var value = ConvertSystemSourcetoHtml(excelData[i][key]);
+                for(var col=0; col<cols.length; col++) {
+                    var id = cols[col].name;
+                    if(id == key) {
+                        var name = cols[col].targetcode;
+                        obj[name] = value;
+                        break;
+                    }
+                }
+            });
+            
+            dataArr.push(obj);
+        }
+        
+        var dataArrType = "header";
+        if($("#EXCELUP_VAL").val() == "DETAIL") {
+            dataArrType = "detail";
+        }
+        else if($("#EXCELUP_VAL").val() == "SDETAIL") {
+            dataArrType = "sdetail";
+        }
+        
+        var data = {};
+        data.LANGTYPE = $("#lang").val();
+        data.SYSTEMCODE = $("#systemcode").val();
+        data.MENUCODE = $("#menucode").val();
+        data.type = "excel";
+        data.UID = $("#UID").val();
+        
+        var postdata = "data=" + encodeURIComponent(JSON.stringify(data));
+        postdata += "&type=excel";
+        postdata += "&UID=" + $("#UID").val();
+        postdata += "&menucode=" + $("#menucode").val();
+        postdata += "&" + dataArrType + "=" + encodeURIComponent(JSON.stringify(dataArr));
+        
+        $.ajax({
+            type: "post",
+            url: "/ajax.do",
+            data: postdata,
+            success: function(e, t, i) {
+                
+                if(e.trim() === "error : not found wh_cd"){
+                    msg("창고코드를 다시 확인하십시오!", null, "N");
+                    return;
+                }
+                
+                var a = JSON.parse(e),
+                    e = a.result,
+                    a = a.CNT;
+                    
+                "Y" == e ? ($("#EXCELJSON").val(""), $("#ExcelModal").dialog("destroy"), "Y" == $("#SAVETYPE").val() && msg(langObj.JS0000003, null, "N")) : (null != a && "" != a && grid_excelup.focusAt(a, "0", !0), null != e && "" != e ? (e = decodeURIComponent(e).replace(/\+/g, " "), msg(langObj.JS0000004, e, "Y")) : msg(langObj.JS0000004, null, "Y")), setTimeout(function() {
+                    "Y" == $("#LOADYN").val() && $.isLoading("hide")
+                }, 10)
+            },
+            error: function(e, t, i) {
+                var a = e.responseText;
+                null != a && "" != a && a.indexOf("<!DOCTYPE html><html>") < 0 && (a = decodeURIComponent(e.responseText)), msghtml(langObj.JS0000004, a, "Y"), setTimeout(function() {
+                    "Y" == $("#LOADYN").val() && $.isLoading("hide")
+                }, 10)
+            }
+        });
+    });
+}
+
+$("#cust_btn1").on("click", function () {
+    if(confirm("Press a button!")){
+         grid1_1.checkAll();
+    
+    // const detail_input_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["input_qty"])];
+    const itmobj1_clone = Object.entries(itmobj1).reduce((acc, [key, value]) => {
+                            acc[value] = key;
+                            return acc;
+                          }, {});
+                          
+    let checkedRows1 = [];
+    
+    checkedRows1.push(Object.entries(grid1.getCheckedRows()[0]).reduce((acc, [key, value]) => {
+                            if(typeof value == "number" && nvl(value, "") != ""){
+                                value = "" + value;
+                            }
+                            acc[itmobj1_clone[key]] = value;
+                            return acc;
+                          }, {}));
+    
+    const itmobj2_clone =  Object.entries(itmobj2).reduce((acc, [key, value]) => {
+                            acc[value] = key;
+                            return acc;
+                          }, {});
+                          
+    var checkedRows11 = grid1_1.getCheckedRows();
+  
+    var Rows = [];
+    
+    for(var i = 0; i < checkedRows11.length; i++) {
+        // var ab = {}
+        if (checkedRows11[i]["ITEM000016079"] > 0) {
+             Rows.push(checkedRows11[i]);
+        }
+    }
+    
+    Rows.forEach((element, index)=>{
+        Rows[index] = Object.entries(Rows[index]).reduce((acc, [key, value]) => {
+                            if(typeof value == "number" && nvl(value, "") != ""){
+                                value = "" + value;
+                            }
+                            acc[itmobj2_clone[key]] = value;
+                            return acc;
+                          }, {})
+    });
+
+    var dataPost = {};
+    dataPost.type = "insert";
+    dataPost.menucode = "M000002431";
+    dataPost.header = JSON.stringify(checkedRows1);
+    dataPost.detail = JSON.stringify(Rows);
+    dataPost.UID = $("#UID").val();
+    $.ajax({
+      type: "POST",
+      url: "/ajax.do",
+      data: dataPost,
+      success: function (response, status, request) {
+          response = JSON.parse(response.trim());
+          msg(response.result, null, "N");
+          console.log(response);
+          parent.$("#NMODModal").dialog("destroy");
+      },
+      error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+    });
+    }
+   
+});
+

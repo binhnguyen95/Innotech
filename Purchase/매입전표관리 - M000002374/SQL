@@ -1,0 +1,118 @@
+select 
+    {fromdt} as fromdt,
+    {todt} as todt,
+    {h_in_cd_ser} as h_in_cd_ser,
+    {project_cd_ser} as project_cd_ser,
+    {request_type_ser} as request_type_ser,
+    {sale_type_ser} as sale_type_ser,
+    {manager_ser} as manager_ser,
+    {dept_ser} as dept_ser,
+    {cust_ser} cust_ser,
+    {item_ser} item_ser,
+    a.comp_cd,
+    a.factory_cd,
+    a.h_in_cd,
+    a.in_cd,
+    a.order_cd,
+    a.request_cd,
+    a.project_cd,
+    a.request_type,
+    a.sale_type,
+    a.sale_process_type,
+    a.purchase_date,
+    a.in_date,
+    a.wh_cd,
+    a.dept_cd,
+    a.manager_id,
+    a.in_file,
+    a.have_tax,
+    a.tot_supply_amt,
+    a.tot_vat,
+    a.tot_in_amt,
+    a.memo,
+    a.use_yn,
+    a.createuser,
+    a.createdate,
+    a.updateuser,
+    a.updatedate,
+    
+    b.comp_cd as d_comp_cd,
+    b.factory_cd as d_factory_cd,
+    b.h_in_cd as d_h_in_cd,
+    b.h_in_seq as d_h_in_seq,
+    b.request_cd as d_request_cd,
+    b.request_seq as d_request_seq,
+    b.order_cd as d_order_cd,
+    b.order_seq as d_order_seq,
+    b.in_cd as d_in_cd,
+    b.in_seq as d_in_seq,
+    b.item_cd as d_item_cd,
+    b.supplier_cd as d_supplier_cd,
+    b.wh_cd as d_wh_cd,
+    b.order_qty as d_order_qty,
+    b.in_price as d_in_price,
+    b.supply_amt as d_supply_amt,
+    b.vat_amt as d_vat_amt,
+    b.in_amt as d_in_amt,
+    b.progress_status as d_progress_status,
+    case when b.progress_status = 'completed' then concat('<span class="form-circle-sm" style="background-color:#0063B2;"><span style="color:white;">', ps.code_value, '</span</span>')
+         when b.progress_status = 'interface' then concat('<span class="form-circle-sm" style="background-color:#fca326;"><span style="color:white;">', ps.code_value, '</span</span>') 
+         else concat('<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">', '작성', '</span</span>')
+        end as progress_status_nm,
+    case when b.progress_status = 'completed' then ps.code_value
+         when b.progress_status = 'interface' then ps.code_value
+         else '작성'
+        end as progress_status_name,    
+    b.progress_qty as d_progress_qty,
+    b.memo as d_memo,
+    b.use_yn as d_use_yn,
+    b.createdate as d_createdate,
+    b.createuser as d_createuser,
+    b.updatedate as d_updatedate,
+    b.updateuser as d_updateuser,
+    b.IN_DT,
+    b.IN_SQ,
+    
+    rt.code_value as request_type_nm,
+    s.code_value as sale_type_nm,
+    wh.wh_nm,
+    m.USERNAME as manager_nm,
+    d.DEPTNM as manager_dept,
+    pt.code_value as sale_process_type_nm,
+    
+    i.item_type_nm,
+    i.item_no,
+    i.item_nm,
+    i.spec,
+    i.unit,
+    c.cust_nm as supplier_nm
+    
+from tb_pur_handle_stock_in a
+left join tb_pur_handle_stock_in_detail b on a.comp_cd = b.comp_cd and a.factory_cd = b.factory_cd and a.h_in_cd = b.h_in_cd
+
+left join tb_ma_wh wh on wh.wh_cd = a.wh_cd and wh.comp_cd = a.comp_cd and wh.factory_cd = a.factory_cd
+left join vw_ma_code_request_type rt on rt.code = a.request_type
+left join vw_ma_code_request_sale_type s on s.code = a.sale_type
+left join vw_cm_usermaster m on m.UID = a.manager_id
+left join tb_cm_dept d on d.DEPTCD = a.dept_cd
+left join vw_ma_code_sale_process_type pt on a.sale_process_type = pt.code
+
+    left join vw_ma_item i on i.item_cd = b.item_cd and i.comp_cd = b.comp_cd and i.factory_cd = b.factory_cd
+    left join tb_ma_client c on c.cust_item_cd = b.supplier_cd and c.comp_cd = b.comp_cd and c.factory_cd = b.factory_cd
+    left join vw_ma_code_pu_progress_status ps on ps.code = b.progress_status
+
+where a.comp_cd = {comp_cd}
+   and a.factory_cd = {factory_cd}
+   and (isnull(a.use_yn, 'Y') = 'Y')
+   and (isnull(b.use_yn, 'Y') = 'Y')
+   and (isnull({fromdt},'') = '' or a.in_date >= {fromdt})
+   and (isnull({todt},'') = '' or a.in_date <= {todt})
+   and (isnull({h_in_cd_ser},'') = '' or a.h_in_cd like concat('%', {h_in_cd_ser}, '%'))
+   and (isnull({project_cd_ser},'') = '' or a.project_cd like concat('%', {project_cd_ser}, '%') or b.item_cd like concat('%', {project_cd_ser}, '%'))
+   and (isnull({request_type_ser},'') = '' or a.request_type = {request_type_ser})
+   and (isnull({sale_type_ser},'') = '' or a.sale_type = {sale_type_ser})
+   and (isnull({manager_ser},'') = '' or a.manager_id = {manager_ser})
+   and (isnull({dept_ser},'') = '' or a.dept_cd = {dept_ser})
+   and (isnull({cust_ser},'') = '' or c.cust_nm like concat('%', {cust_ser}, '%'))
+ order by a.createdate desc
+

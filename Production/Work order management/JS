@@ -1,0 +1,191 @@
+SetExcelUploadAjax();
+const projectCodeToPlan = localStorage.getItem("projectCodeToPlan")
+if (projectCodeToPlan) {
+    $(`#${itmobj1["project_ser"]}`).val(projectCodeToPlan);
+    localStorage.removeItem("projectCodeToPlan")
+}
+$(`#${itmobj1["all_ser_hide"]}`).val("Y");
+
+
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+const today = moment();
+const lastDay = today.endOf("month").format("YYYY-MM-DD");
+
+$(`#${itmobj1["fromdt"]}`).val(moment().format("YYYY-MM-01"));
+$(`#${itmobj1["todt"]}`).val(lastDay);
+
+$("#search_btn").trigger("click");
+
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["work_order_cd"]]);
+  }
+});
+
+$("#cust_btn3").on("click", function () {
+    const checkeds = grid1.getCheckedRows();
+    let flag = true;
+    let message = "";
+    if (checkeds.length === 0) {
+        flag = false;
+        message = "생산지시를 선택하십시오!";
+    }
+    for (let i = 0; i < checkeds.length; i++) {
+        if (checkeds[i][itmobj1["process_status"]] == "done") {
+            flag = false;
+            message = "제품 생산이 완료되었습니다!";
+            break;
+        } else if (checkeds[i][itmobj1["process_status"]] == "new"){
+            flag = false;
+            message = "자재투입내역이 없어서 생산완료 처리할 수 없습니다!";
+            break;
+        }
+    }
+    if (flag === false) {
+        msg(message, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+    } else {
+        $(`<div id="confirm_complete"></div>`).appendTo("body")
+        .html(`<div class="form-div form-item" style=""><div class="form-title">생산완료일</div><div class="form-content"><input type="text" name="date_input" class="top_data form-input datepicker" value="" style="text-align:left;" readonly></div></div>`)
+        .dialog({
+          closeOnEscape: false,
+          modal: true,
+          title: "",
+          zIndex: 10000,
+          autoOpen: true,
+          width: "auto",
+          resizable: false,
+          position: { my: "top", at: "top+150" },
+          open: function(event, ui) {
+            $("input").blur();
+          },
+          buttons: {
+            "생산완료": function() {
+                handleConfirm();
+    
+              $(this).dialog("close");
+            },
+            "취소": function() {
+    
+              $(this).dialog("close");
+            }
+          },
+          close: function(event, ui) {
+            $(this).remove();
+          }
+        });
+        $( ".datepicker" ).datepicker({
+          dateFormat: "yy-mm-dd",
+        }).datepicker("setDate", new Date());
+        
+        $(document).keyup(function(e) {
+
+          if (e.keyCode == 27) { 
+              $("#confirm_complete").remove();
+           }   // esc
+        });
+    }
+});
+
+
+$(`#${itmobj1["all_ser"]}`).on("change", function() {
+    $(`#${itmobj1["all_ser_hide"]}`).val(this.checked ? "Y" : "");
+})
+$(`#${itmobj1["processing_ser"]}`).on("change", function() {
+    $(`#${itmobj1["processing_ser_hide"]}`).val(this.checked ? "Y" : "");
+})
+$(`#${itmobj1["done_ser"]}`).on("change", function() {
+    $(`#${itmobj1["done_ser_hide"]}`).val(this.checked ? "Y" : "");
+})
+
+grid1.on("check", function() {
+    $(`#${itmobj1["all_ser"]}`).prop("checked",  $(`#${itmobj1["all_ser_hide"]}`).val() === "Y");
+    $(`#${itmobj1["processing_ser"]}`).prop("checked",  $(`#${itmobj1["processing_ser_hide"]}`).val() === "Y");
+    $(`#${itmobj1["done_ser"]}`).prop("checked",  $(`#${itmobj1["done_ser_hide"]}`).val() === "Y");
+})
+
+$(window).on("resize", function(){
+   var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() + 200);
+    grid1.setHeight(height);
+});
+
+function handleConfirm() {
+    var cols = grid1.getColumns();
+    var checkedRows = grid1.getCheckedRows();
+        
+    var convertRows = [];
+    
+    for(var i = 0; i < checkedRows.length; i++) {
+        var obj = {};
+        
+        Object.keys(checkedRows[i]).forEach(function(key){
+            var value = ConvertSystemSourcetoHtml(checkedRows[i][key]);
+            for(var col=0; col<cols.length; col++) {
+                var id = cols[col].name;
+                if(id == key) {
+                    var name = cols[col].targetcode;
+                    obj[name] = value;
+                    break;
+                }
+            }
+        });
+        
+        convertRows.push(obj);
+    }
+    
+    var dataPost = {};
+    dataPost.type = "handle_confirm";
+    dataPost.menucode = "M000002430";
+    dataPost.dateInput = $(`input[name="date_input"]`).val();
+    dataPost.header = JSON.stringify(convertRows);
+    $.ajax({
+      type: "POST",
+      url: "/ajax.do",
+      data: dataPost,
+      success: function (response, status, request) {
+        if (status === "success") {
+            const data = JSON.parse(response.trim());
+            if (data.result !== undefined) {
+                msg(data.result, null, "N");
+                if ($("#msgconfirm").is(":visible")) {
+                  $("#msgconfirm").dialog("destroy");
+                }
+                $("#search_btn").trigger("click");
+                return false;
+            }
+            if (data.error !== undefined) {
+                msg(data.error, null, "N");
+                if ($("#msgconfirm").is(":visible")) {
+                  $("#msgconfirm").dialog("destroy");
+                }
+                return false;
+            }
+        }
+      },
+      error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+    });
+}
+
+$(".editer-content2 #grid1 .tui-grid-lside-area .tui-grid-summary-area tr:first td:last").html(`<span style="font-weight:bold">합계</span>`);
+
+
+
+
+

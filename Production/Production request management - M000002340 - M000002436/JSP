@@ -1,0 +1,230 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+    String data = (String)request.getParameter("data");
+    String qty = (String)request.getParameter("qty");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    
+    String prod_type = "";
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {}
+
+            if ( type.equals("delete") ) {}
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {
+                Gson gson = new Gson();
+                List<Map> list = gson.fromJson(data, List.class);
+                for(int i = 0 ; i < list.size() ; i++){
+                    prod_type = list.get(i).get("prod_type").toString();
+                    if (list.size() > 1) break;
+                    Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_work_order", list.get(i));
+                    String cnt = getSOrder(conn, " select count(*) cnt from tb_prod_work_order where plan_cd = " + row.get("plan_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and isnull(use_yn,'Y') = 'Y'");
+                    
+                    if (prod_type.equals("P")) {
+                        int qty_int = Integer.parseInt(qty);
+                        if (cnt.equals("0")) {
+                            //change process status of plan
+                            sql = " update tb_prod_plan set process_status = 'processing' where plan_cd = " + row.get("plan_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            logger.info("update tb_prod_plan");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                                
+                            for (int q = 0; q < qty_int; q++) {
+                                String work_order_cd = "'" + generateCode(conn, "CC002073") + "'";
+                                sql = " insert into tb_prod_work_order ";
+                                sql += "  (comp_cd, factory_cd, work_order_cd, plan_cd, project_cd, item_cd, cust_cd, sort, work_order_date, process_qty, process_status, use_yn, prod_type, createdate, createuser, updatedate, updateuser) VALUES (";
+                                sql += " " + row.get("comp_cd") + "  ";
+                                sql += " , " + row.get("factory_cd") + "  ";
+                                sql += " , " + work_order_cd + " ";
+                                sql += " , " + row.get("plan_cd") + "  ";
+                                sql += " , " + row.get("project_cd") + "  ";
+                                sql += " , " + row.get("item_cd") + "  ";
+                                sql += " , " + row.get("cust_cd") + "  ";
+                                sql += " , " + (q + 1) + "  ";
+                                sql += " , getdate()  ";
+                                sql += " , " + 0 + "  ";
+                                sql += " , 'new'  ";
+                                sql += " , 'Y'  ";
+                                sql += " , " + row.get("prod_type") + "  ";
+                                sql += " , getdate()  ";
+                                sql += " , '" + UID + "'  ";
+                                sql += " , getdate()  ";
+                                sql += " , '" + UID + "') ";
+                                logger.info("insert tb_prod_work_order");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory("insert", sql);
+                            
+                                //get BOM
+                                sql = "SELECT * FROM tb_ma_bom where prod_item_cd = " + row.get("item_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and isnull(use_yn,'Y') = 'Y'" ;
+                                List<Map<String, Object>> boms = selectAllQuery(conn, sql);
+                                for(int b = 0 ; b < boms.size() ; b++){
+                                    Map<String, String> bomRow = getRow(conn, "simbiz", "dbo", "tb_ma_bom", boms.get(b));
+                                
+                                    sql = " insert into tb_prod_work_order_detail ";
+                                    sql += "  (comp_cd, factory_cd, work_order_cd, work_order_seq, item_cd, bom_level, qty, process_qty, process_status, use_yn, createdate, createuser, updatedate, updateuser) VALUES (";
+                                    sql += " " + bomRow.get("comp_cd") + "  ";
+                                    sql += " , " + bomRow.get("factory_cd") + "  ";
+                                    sql += " , " + work_order_cd + " ";
+                                    sql += " , " + (b + 1) + "  ";
+                                    sql += " , " + bomRow.get("c_item_cd") + "  ";
+                                    sql += " , " + bomRow.get("bom_level") + "  ";
+                                    sql += " , " + bomRow.get("qty") + "  ";
+                                    sql += " , " + 0 + "  ";
+                                    sql += " , 'new'  ";
+                                    sql += " , 'Y'  ";
+                                    sql += " , getdate()  ";
+                                    sql += " , '" + UID + "'  ";
+                                    sql += " , getdate()  ";
+                                    sql += " , '" + UID + "') ";
+                                    logger.info("insert tb_prod_work_order_detail");
+                                    logger.info(sql);
+                                    pstmt = conn.prepareStatement(sql);
+                                    pstmt.executeUpdate();
+                                    addHistory("insert", sql);
+                                }
+                            }
+                        }
+                    } else {
+                        int qty_int = Integer.parseInt(qty);
+                        if (cnt.equals("0")) {
+                            //change process status of plan
+                            sql = " update tb_prod_plan set process_status = 'processing' where plan_cd = " + row.get("plan_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            logger.info("update tb_prod_plan");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                                
+                                String work_order_cd = "'" + generateCode(conn, "CC002073") + "'";
+                                sql = " insert into tb_prod_work_order ";
+                                sql += "  (comp_cd, factory_cd, work_order_cd, plan_cd, project_cd, item_cd, cust_cd, sort, work_order_date, process_qty, process_status, use_yn, prod_type, createdate, createuser, updatedate, updateuser) VALUES (";
+                                sql += " " + row.get("comp_cd") + "  ";
+                                sql += " , " + row.get("factory_cd") + "  ";
+                                sql += " , " + work_order_cd + " ";
+                                sql += " , " + row.get("plan_cd") + "  ";
+                                sql += " , " + row.get("project_cd") + "  ";
+                                sql += " , " + row.get("item_cd") + "  ";
+                                sql += " , " + row.get("cust_cd") + "  ";
+                                sql += " , " + (qty_int) + "  ";
+                                sql += " , getdate()  ";
+                                sql += " , " + 0 + "  ";
+                                sql += " , 'new'  ";
+                                sql += " , 'Y'  ";
+                                sql += " , " + row.get("prod_type") + "  ";
+                                sql += " , getdate()  ";
+                                sql += " , '" + UID + "'  ";
+                                sql += " , getdate()  ";
+                                sql += " , '" + UID + "') ";
+                                logger.info("insert tb_prod_work_order");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory("insert", sql);
+                            
+                                //get BOM
+                                sql = "SELECT * FROM tb_ma_bom where prod_item_cd = " + row.get("item_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and isnull(use_yn,'Y') = 'Y'" ;
+                                List<Map<String, Object>> boms = selectAllQuery(conn, sql);
+                                for(int b = 0 ; b < boms.size() ; b++){
+                                    Map<String, String> bomRow = getRow(conn, "simbiz", "dbo", "tb_ma_bom", boms.get(b));
+                                
+                                    sql = " insert into tb_prod_work_order_detail ";
+                                    sql += "  (comp_cd, factory_cd, work_order_cd, work_order_seq, item_cd, bom_level, qty, process_qty, process_status, use_yn, createdate, createuser, updatedate, updateuser) VALUES (";
+                                    sql += " " + bomRow.get("comp_cd") + "  ";
+                                    sql += " , " + bomRow.get("factory_cd") + "  ";
+                                    sql += " , " + work_order_cd + " ";
+                                    sql += " , " + (b + 1) + "  ";
+                                    sql += " , " + bomRow.get("c_item_cd") + "  ";
+                                    sql += " , " + bomRow.get("bom_level") + "  ";
+                                    sql += " , " + bomRow.get("qty") + "  ";
+                                    sql += " , " + 0 + "  ";
+                                    sql += " , 'new'  ";
+                                    sql += " , 'Y'  ";
+                                    sql += " , getdate()  ";
+                                    sql += " , '" + UID + "'  ";
+                                    sql += " , getdate()  ";
+                                    sql += " , '" + UID + "') ";
+                                    logger.info("insert tb_prod_work_order_detail");
+                                    logger.info(sql);
+                                    pstmt = conn.prepareStatement(sql);
+                                    pstmt.executeUpdate();
+                                    addHistory("insert", sql);
+                                }
+                        }
+
+                    }    
+                    
+                }
+                PassText = "Create work order success.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("cust_btn5") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

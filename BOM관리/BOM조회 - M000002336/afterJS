@@ -1,0 +1,7 @@
+var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() +250);
+    grid1.setHeight(height);
+    grid1_1.setHeight(height);
+// var gd1 = grid1.getRows();
+// if ( gd1.length > 0 ) {
+//     grid1.check(0);
+// }

@@ -1,0 +1,110 @@
+localStorage.removeItem("out_req_grid11");
+
+$("#detail-addrow").show();
+$("#detail-delrow").show();
+$("#search_btn").hide();
+$("#reset_btn").hide();
+
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+
+if ( nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != "" ) {
+    $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+    $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+    $("#" + itmobj1["out_req_cd"]).val(DUMMY3);
+    parent.$("#DUMMY1").val("");
+    parent.$("#DUMMY2").val("");
+    parent.$("#DUMMY3").val("");
+    $("#search_btn").trigger("click");
+}
+
+const ENABLE = { 
+    "opacity" : "1",
+    "background-color" : "#FFFFFF"
+};
+
+const CSS_INPUT_DISABLE = { 
+    "opacity" : "1",
+    "background-color" : "-internal-light-dark(graytext, rgb(221, 221, 221))"
+};
+
+
+$("#" + itmobj1["project_cd"]).attr("disabled", true);
+$("#" + itmobj1["project_cd"]).css(CSS_INPUT_DISABLE);
+
+//validate
+grid1_1.on("check", function(event) {
+    //save grid1_1 rows to localStorage (chi luu lan dau)
+    if (!localStorage.getItem("out_req_grid11")) {
+        localStorage.setItem("out_req_grid11", JSON.stringify(grid1_1.getRows()));
+    }
+})
+
+var detail_in_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_in_item_cd_column.onAfterChange = function (event) {
+    if (grid1_1.getValue(event.rowKey, itmobj2["out_req_seq"])) {
+        const in_req_seq = grid1_1.getValue(event.rowKey, itmobj2["out_req_seq"]);
+        if(nvl(grid1_1.getValue(event.rowKey, itmobj2["in_out_status"]),"new") !== "new"){
+        resetToOriginalValue(event.rowKey, in_req_seq) }
+    }
+};
+
+var detail_in_req_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["req_qty"])];
+detail_in_req_qty_column.onAfterChange = function (event) {
+    if (grid1_1.getValue(event.rowKey, itmobj2["out_req_seq"])) {
+        const in_req_seq = grid1_1.getValue(event.rowKey, itmobj2["out_req_seq"]);
+        if(nvl(grid1_1.getValue(event.rowKey, itmobj2["in_out_status"]),"new") !== "new"){
+        resetToOriginalValue(event.rowKey, in_req_seq) }
+    }
+};
+
+$(`#${itmobj1["out_stk_type"]}`).on("change", function () {
+  const out_stk_type = $("#" + itmobj1["out_stk_type"]).val();
+  if  ( out_stk_type !== "input"){
+      $("#" + itmobj1["project_cd"]).attr("disabled", true);
+      $("#" + itmobj1["project_cd"]).val("");
+      $("#" + itmobj1["project_cd"]).css(CSS_INPUT_DISABLE);
+  } else {
+      $("#" + itmobj1["project_cd"]).attr("disabled", false);
+      $("#" + itmobj1["project_cd"]).css(ENABLE);
+  }
+});
+
+
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function(){
+    if ( $(this).val() == "Y" ) {
+        $(this).val("N");
+        parent.$("#search_btn").trigger("click");
+        parent.grid1_1.clear();
+        parent.$("#NMODModal").dialog("destroy");
+    }
+});
+
+//set status name when add detail
+$("#detail-addrow").on("click", function() {
+    setTimeout(function() {
+        var gd11 = grid1_1.getRows();
+        for (let i = 0; i < gd11.length; i++ ) {
+            if (nvl(gd11[i][itmobj2["status_name"]],"") === "") {
+                grid1_1.setValue(i, itmobj2["status_name"], `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`);
+            }
+        }
+    },500)
+})
+//end
+
+function resetToOriginalValue(row_key, out_req_seq) {
+    let data = localStorage.getItem("out_req_grid11");
+    if (data) {
+        data = JSON.parse(data);
+        //lay ra gia tri ban dau theo in_req_seq
+        const row = data.filter(item => item[itmobj2["out_req_seq"]] === in_req_seq);
+        if (row.length > 0) {
+            //dat lai gia tri
+            grid1_1.setValue(row_key, itmobj2["item_cd"], row[0][itmobj2["item_cd"]]);
+            grid1_1.setValue(row_key, itmobj2["req_qty"], row[0][itmobj2["req_qty"]]);
+        }
+    }
+}

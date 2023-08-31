@@ -1,0 +1,577 @@
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+
+
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+//double click to update
+grid1.on("dblclick", function (ev) {
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+
+// var timeoutID;
+
+$("#reset_btn").on("click", function(){
+    setTimeout(function(){
+        grid1_1.clear();
+    }, 300);
+                
+    // let clearTimeout_status = clearResetTimeout();
+    // if(clearTimeout_status){
+    //     return;
+    // }
+    
+    // if (timeoutID) {
+    //     clearTimeout(timeoutID);
+    //     timeoutID = null;
+    // }
+    
+    // timeoutID = setTimeout(function(){
+    //                 $("#reset_btn").trigger("click");
+    //             }, 300);
+});
+
+
+// function clearResetTimeout() {
+//   if (timeoutID) {
+//     clearTimeout(timeoutID);
+//     timeoutID = null;
+//     return true;
+//   }
+//   return false;
+// }
+
+
+
+
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["invoice_export_cd"]]);
+  }
+});
+
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["progress_status"]] !== "completed") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+
+//handle jump from request
+let invoiceGrid1 = localStorage.getItem("invoiceGrid1");
+let invoiceGrid11 = localStorage.getItem("invoiceGrid11");
+if (invoiceGrid1 && invoiceGrid11) {
+  $("#cust_btn1").trigger("click");
+}
+
+
+grid1.on("uncheck", function(event){
+    let rowsChecked = grid1.getCheckedRowKeys();
+    if(rowsChecked.length === 1){
+        grid1.uncheck(rowsChecked[0]);
+        grid1.check(rowsChecked[0]);
+    }
+});
+
+// if  checked > 2 and and same customer then group detail
+grid1.on("check uncheck", function (event){
+    grid1_1.clear();
+    let rowsChecked = grid1.getCheckedRows();
+    const validate = validateBeforeJump(rowsChecked);
+    
+    // if(rowsChecked.length == 1){
+    //     let rowKey = rowsChecked[0].rowKey;
+        
+    // }
+    
+    if(validate && rowsChecked.length > 1 ){
+        let header = [grid1.getCheckedRows()];
+
+        header = header[0].reduce((array, item)=>{
+            array.push(item[itmobj1["invoice_export_cd"]]);
+            return array;
+        }, []);
+        
+        var detail = [];
+        var sdetail = [];
+
+        var data = {};
+        data.type = "get_data_detail";
+        data.menucode = "M000002346";
+        data.header = encodeURIComponent(JSON.stringify(header));
+        
+        $.ajax({
+        type: "POST",
+        url: "/ajax.do",
+        data: data,
+        success: function(response, status, request) {
+            response = JSON.parse(response);
+            renderDataDetail(response);
+        },
+        error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+            
+        });
+    }
+})
+
+function findValueSameOfAll(data = [], key){
+    let a = data[0][key];
+    let isSame = true;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][key] !== a) {
+        isSame = false;
+        break;
+      }
+    }
+    if (isSame) {
+      return a;
+    } else {
+      return false;
+    }
+
+}
+
+$("#cust_btn4").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+ 
+//   if(validateBeforeJump(gd1) == false){
+//     msg("Can not jump while not with the same customer.", null, "N");
+//     return false;
+//   }
+  
+  
+  if (gd1.length >= 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+        //validate xu ly kho xong moi chuyen sang xu ly doanh thu duoc
+        if (gd1[i][itmobj1["progress_status"]] != "confirmed") {
+            msg(`출고 확정 먼저 처리하십시오!`, null, "N");
+            if ($("#msgconfirm").is(":visible")) {
+              $("#msgconfirm").dialog("destroy");
+            }
+            return false;
+        }
+        
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      
+    //   obj.wh_cd =  gd1[i][itmobj1["wh_cd"]] ;
+
+      obj.wh_cd = findValueSameOfAll(gd1, itmobj1["wh_cd"]);
+      
+      obj.project_cd = findValueSameOfAll(gd1, itmobj1["project_cd"]);
+      
+    //   obj.invoice_export_cd = gd1[i][itmobj1["invoice_export_cd"]];
+      obj.invoice_export_cd = findValueSameOfAll(gd1, itmobj1["invoice_export_cd"]);
+      
+      obj.order_cd = findValueSameOfAll(gd1, itmobj1["order_cd"]);
+      
+      obj.order_no = findValueSameOfAll(gd1, itmobj1["order_no"]);
+      
+      obj.cust_delivery_nm = findValueSameOfAll(gd1, itmobj1["cust_delivery_nm"]);
+      
+      obj.sale_type = findValueSameOfAll(gd1, itmobj1["sale_type"]);
+      
+      obj.invoice_export_type = findValueSameOfAll(gd1, itmobj1["invoice_export_type"]);
+      
+      obj.dept_cd = findValueSameOfAll(gd1, itmobj1["dept_cd"]);
+      
+      obj.manager_id = findValueSameOfAll(gd1, itmobj1["manager_id"]);
+      
+      obj.have_tax = findValueSameOfAll(gd1, itmobj1["have_tax"]);
+      
+      obj.tot_supply_amt = findValueSameOfAll(gd1, itmobj1["tot_supply_amt"]);
+      
+      obj.tot_vat_amt = findValueSameOfAll(gd1, itmobj1["tot_vat_amt"]);
+      
+      obj.bl_amt = findValueSameOfAll(gd1, itmobj1["bl_amt"]);
+      
+      obj.currency_unit = findValueSameOfAll(gd1, itmobj1["currency_unit"]);
+      
+      obj.currency_ratio = findValueSameOfAll(gd1, itmobj1["currency_ratio"]);
+      
+      obj.tot_currency_amt = findValueSameOfAll(gd1, itmobj1["tot_currency_amt"]);
+      
+      obj.equip_yn = findValueSameOfAll(gd1, itmobj1["equip_yn"]);
+      
+      obj.export_type = findValueSameOfAll(gd1, itmobj1["export_type"]);
+      
+      obj.cust_cd = findValueSameOfAll(gd1, itmobj1["cust_cd"]);
+      obj.cust_nm = findValueSameOfAll(gd1, itmobj1["cust_nm"]);
+
+      obj.memo = gd1[i][itmobj1["memo"]];
+      
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+    //     if (!gd11[i][itmobj2["item_cd"]]) {
+    //     msg("제품을 업데이트하십시오.", null, "N");
+    //     if ($("#msgconfirm").is(":visible")) {
+    //       $("#msgconfirm").dialog("destroy");
+    //     }
+    //     return false;
+    //   }
+      
+    //   if (nvl(gd11[i][itmobj2["in_out_status"]], "") == "done") {
+    //     msg(`제품 ${gd11[i][itmobj2["item_cd"]]} 가 완료되었습니다.`, null, "N");
+    //     if ($("#msgconfirm").is(":visible")) {
+    //       $("#msgconfirm").dialog("destroy");
+    //     }
+    //     return false;
+    //   }
+
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_type_nm = gd11[i][itmobj2["item_type_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      
+      obj.invoice_export_cd = gd11[i][itmobj2["invoice_export_cd"]];
+      obj.invoice_export_seq = gd11[i][itmobj2["invoice_export_seq"]];
+      obj.project_cd = gd11[i][itmobj2["project_cd"]];
+      obj.qty = gd11[i][itmobj2["qty"]];
+      obj.price = gd11[i][itmobj2["price"]];
+      obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
+      obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
+      obj.amt = gd11[i][itmobj2["amt"]];
+      obj.currency_price = gd11[i][itmobj2["currency_price"]];
+      obj.currency_amt = gd11[i][itmobj2["currency_amt"]];
+      
+      obj.qty = obj.order_qty = +nvl(gd11[i][itmobj2["qty"]],0) - +nvl(gd11[i][itmobj2["progress_qty"]],0);
+      gd11Convert.push(obj);
+    }
+    
+    
+    let rowsChecked  = grid1_1.getCheckedRows();
+    
+    let progress_status = rowsChecked.map(function(row){
+        return row[itmobj2["progress_status"]];
+    });
+
+    let validate_detail = progress_status.findIndex(item => item == "completed");
+    
+    if (validate_detail !== -1){
+        // Sản phẩm đã hoàn thành thì không thể nhảy
+        msg("처리 완료되었습니다", null, "N");
+        return false;
+    }
+    
+    localStorage.setItem("in_requestGrid1_invoice", JSON.stringify(gd1Convert));
+    localStorage.setItem("in_requestGrid11_invoice", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000002347_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000002347").trigger("click");
+    
+    setTimeout(function(){
+        $("#search_btn").trigger("click");
+    }, 1000);
+    
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});
+
+// if the same cust_cd return empty array else return array more than 1 element
+function validateBeforeJump(grid1_checked_rows){
+    // if the same cust_cd return empty array else return array more than 1 element
+    const result = grid1_checked_rows.reduce((array, current, index, src)=>{
+        if (index !== 0 && current[itmobj1["cust_cd"]] != src[index - 1][itmobj1["cust_cd"]]){
+    	    array.push(current[itmobj1["cust_cd"]]);
+        }
+        return array;
+    }, []);
+    
+    if(result.length == 0){
+        return true;
+    }
+    
+    return false;
+}
+
+
+
+function renderDataDetail(in_requestGrid11){
+    
+    // const daRequestGrid11 = in_requestGrid11.map(item => {
+    //     let obj = {};
+    //     obj[itmobj2["comp_cd"]] = item.comp_cd;
+    //     obj[itmobj2["factory_cd"]] = item.factory_cd;
+    //     obj[itmobj2["invoice_export_cd"]] = item.invoice_export_cd;
+    //     obj[itmobj2["invoice_export_seq"]] = item.invoice_export_seq;
+    //     obj[itmobj2["project_cd"]] = item.project_cd;
+    //     obj[itmobj2["order_cd"]] = item.order_cd;
+    //     obj[itmobj2["order_seq"]] = item.order_seq;
+    //     obj[itmobj2["item_no"]] = item.item_no;
+    //     obj[itmobj2["progress_status"]] = item.progress_status;
+    //     obj[itmobj2["progress_status_nm"]] = item.progress_status_nm;
+    //     obj[itmobj2["use_yn"]] = item.use_yn;
+    //     obj[itmobj2["item_cd"]] = item.item_cd;
+    //     obj[itmobj2["item_nm"]] = item.item_nm;
+    //     obj[itmobj2["unit"]] = item.unit;
+    //     obj[itmobj2["spec"]] = item.spec;
+    //     obj[itmobj2["qty"]] = item.qty;
+    //     obj[itmobj2["price"]] = item.price;
+    //     obj[itmobj2["supply_amt"]] = item.supply_amt;
+    //     obj[itmobj2["vat_amt"]] = item.vat_amt;
+    //     obj[itmobj2["amt"]] = item.amt;
+    //     obj[itmobj2["currency_price"]] = item.currency_price;
+    //     obj[itmobj2["currency_amt"]] = item.currency_amt;
+    //     obj[itmobj2["progress_qty"]] = item.progress_qty;
+    //     obj[itmobj2["memo"]] = item.memo;
+        
+    //     obj[itmobj2["createuser"]] = item.createuser;
+    //     obj[itmobj2["createdate"]] = item.createdate;
+    //     obj[itmobj2["updateuser"]] = item.updateuser;
+    //     obj[itmobj2["updatedate"]] = item.updatedate;
+    //     return obj;
+    // });
+    // grid1_1.setData(daRequestGrid11);
+    
+    for (let i = 0; i < in_requestGrid11.length; i++) {
+      if (nvl(in_requestGrid11[i].invoice_export_cd, "") !== "") {
+        $("#detail-addrow").trigger("click");
+        grid1_1.setValue(i, itmobj2["comp_cd"], in_requestGrid11[i].comp_cd);
+        grid1_1.setValue(i, itmobj2["factory_cd"], in_requestGrid11[i].factory_cd);
+        grid1_1.setValue(i, itmobj2["invoice_export_cd"], in_requestGrid11[i].invoice_export_cd);
+        grid1_1.setValue(i, itmobj2["invoice_export_seq"], in_requestGrid11[i].invoice_export_seq);
+        grid1_1.setValue(i, itmobj2["project_cd"], in_requestGrid11[i].project_cd);
+        grid1_1.setValue(i, itmobj2["order_cd"], in_requestGrid11[i].order_cd);
+        grid1_1.setValue(i, itmobj2["order_seq"], in_requestGrid11[i].order_seq);
+        grid1_1.setValue(i, itmobj2["item_no"], in_requestGrid11[i].item_no);
+        grid1_1.setValue(i, itmobj2["progress_status"], in_requestGrid11[i].progress_status);
+        grid1_1.setValue(i, itmobj2["progress_status_nm"], in_requestGrid11[i].progress_status_nm);
+        grid1_1.setValue(i, itmobj2["use_yn"], in_requestGrid11[i].use_yn);
+        
+        grid1_1.setValue(i, itmobj2["createuser"], in_requestGrid11[i].createuser);
+        grid1_1.setValue(i, itmobj2["createdate"], in_requestGrid11[i].createdate);
+        grid1_1.setValue(i, itmobj2["updateuser"], in_requestGrid11[i].updateuser);
+        grid1_1.setValue(i, itmobj2["updatedate"], in_requestGrid11[i].updatedate);
+        
+        grid1_1.setValue(i, itmobj2["item_cd"], in_requestGrid11[i].item_cd);
+        // $("#" + itmobj2["item_cd"]).prop("disabled", true);
+        
+        grid1_1.setValue(i, itmobj2["item_nm"], in_requestGrid11[i].item_nm);
+        grid1_1.setValue(i, itmobj2["unit"], in_requestGrid11[i].unit);
+        grid1_1.setValue(i, itmobj2["spec"], in_requestGrid11[i].spec);
+        
+        grid1_1.setValue(i, itmobj2["qty"], in_requestGrid11[i].qty);
+        grid1_1.setValue(i, itmobj2["price"], in_requestGrid11[i].price);
+        grid1_1.setValue(i, itmobj2["supply_amt"], in_requestGrid11[i].supply_amt);
+        grid1_1.setValue(i, itmobj2["vat_amt"], in_requestGrid11[i].vat_amt);
+        grid1_1.setValue(i, itmobj2["amt"], in_requestGrid11[i].amt);
+        grid1_1.setValue(i, itmobj2["currency_price"], in_requestGrid11[i].currency_price);
+        grid1_1.setValue(i, itmobj2["currency_amt"], in_requestGrid11[i].currency_amt);
+        grid1_1.setValue(i, itmobj2["progress_qty"], in_requestGrid11[i].progress_qty);
+        grid1_1.setValue(i, itmobj2["memo"], in_requestGrid11[i].memo);
+
+      }
+    }
+}
+
+
+
+$("#cust_btn7").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0 && checked11.length) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"created") !== "created") {
+                error_msg = "작성 상태만 확정처리가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }    
+        
+        if (check_flag) {
+            // Bạn có chắc chắn xác nhận những yêu cầu này không?
+            if (confirm("확정처리하시겠습니까?")) {
+            const checked = grid1.getCheckedRows();
+                if (checked.length > 0) {
+                let header = [];
+                for(let i = 0; i < checked.length; i++) {
+                    const item = {};
+                    item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                    item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                    item.invoice_export_cd = checked[i][itmobj1["invoice_export_cd"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn7";
+                data.menucode = "M000002346";
+                data.header = JSON.stringify(header);
+                
+                    $.ajax({
+                        type: "POST",
+                        url: "/ajax.do",
+                        data: data,
+                        success: function(response, status, request) {
+                            response = JSON.parse(response);
+                            if (response.result == "Success.") {
+                                msg("확정치리가 완료되었습니다!", null, "N");
+                                $("#search_btn").trigger("click")
+                            } else {
+                                msg(response.result, null, "N");
+                            }
+                        },
+                        error: function(xmlHttpRequest, txtStatus, errorThrown) {
+                            console.log("error");
+                        }
+                        
+                    });
+                }
+            }
+        } else {
+            msg(error_msg);
+        }
+    }
+    
+})
+
+$("#cust_btn8").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0 && checked11.length) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"confirmed") !== "confirmed") {
+                error_msg = "확정된 것만  확정 취소가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }         
+        
+        if (check_flag) {
+            // Bạn có chắc chắn xác nhận những yêu cầu này không?
+            if (confirm("확정취소하시겠습니까? ")) {
+                const checked = grid1.getCheckedRows();
+                if (checked.length > 0) {
+                    let header = [];
+                    for(let i = 0; i < checked.length; i++) {
+                        const item = {};
+                        item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                        item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                        item.invoice_export_cd = checked[i][itmobj1["invoice_export_cd"]];
+                        header.push(item);
+                    }
+                    var data = {};
+                    data.type = "cust_btn8";
+                    data.menucode = "M000002346";
+                    data.header = JSON.stringify(header);
+                    
+                    $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) {
+                        response = JSON.parse(response);
+                        if (response.result == "Success.") {
+                            msg("확정취소가 완료되었습니다!", null, "N");
+                            $("#search_btn").trigger("click")
+                        } else {
+                            msg(response.result, null, "N");
+                        }
+                    },
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                        
+                    });
+                }
+            }
+        } else {
+            // error_msg = "이러한 요청은 이미 처리되거나 취소되었습니다!"
+            msg(error_msg);
+        }
+    }
+     
+})
+
+async function validateInvoiceItem(){
+    let rowsChecked = grid1.getCheckedRows();
+    
+    let header = grid1.getCheckedRows();
+
+    header = header.reduce((array, item)=>{
+        array.push(item[itmobj1["invoice_export_cd"]]);
+        return array;
+    }, []);
+        
+    var detail = [];
+    var sdetail = [];
+    var data = {};
+    data.type = "get_data_detail";
+    data.menucode = "M000002346";
+    data.header = encodeURIComponent(JSON.stringify(header));
+    
+   let promise = $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) {},
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {msg(txtStatus);}
+       
+   });
+                        
+    return  promise.then(function(response) {
+            response = JSON.parse(response);
+                    
+            let progress_status = response.map(function(row){
+                return row["progress_status"];
+            });
+                
+            let validate_detail = progress_status.findIndex(item => item != "completed");
+            if (validate_detail !== -1){
+                //Đơn này chưa hoàn thành nên chưa xử lý xuất kho được
+                return {"status": false, "message" : "완료 상태만 출고 처리가 가능합니다"};
+            }
+            return {"status": true}
+    });
+        
+    
+}
+

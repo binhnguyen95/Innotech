@@ -1,0 +1,38 @@
+var gd1 = grid1.getRows();
+if ( gd1.length > 0 ) {
+    const columns = grid1.getColumns();
+    for (let i = 0; i < columns.length; i++) {
+        if (columns[i].name == itmobj1["item_img"]) {
+            const imgPath = grid1.getValue(0,columns[i].name);
+            if (nvl(imgPath,"") != "") {
+                const arrImg = imgPath.split("@@@");
+                $(`#${columns[i].name}`).parent().find("img:first").attr("src", arrImg[0])
+                $(`#${columns[i].name}`).val(imgPath);
+            }
+        } else if (columns[i].name == itmobj1["use_yn"] || columns[i].name == itmobj1["is_essential_by_products"] || columns[i].name == itmobj1["is_follow"]) {
+            if (grid1.getValue(0,columns[i].name) == "Y") {
+                $(`#${columns[i].name}`).prop("checked", true);
+            } else {
+                $(`#${columns[i].name}`).prop("checked", false);
+            }
+        } else {
+            $(`#${columns[i].name}`).val(grid1.getValue(0,columns[i].name));
+        }
+    }
+    
+    // grid1.check(0);
+    if (nvl($(`#${itmobj1["item_cd"]}`).val(),"") !== "") {
+        $(`#${itmobj1["item_no"]}`).prop("readonly", true);
+        $(`#${itmobj1["item_cd"]}`).prop("readonly", true);
+    }
+    
+    if ($(`#${itmobj1["is_essential_by_products"]}`).is(":checked")) {
+        $(`#${itmobj1["essential_by_products_name"]}`).parent().parent().show();
+        // $(`#${itmobj1["is_follow"]}`).parent().parent().show();
+    } else {
+        $(`#${itmobj1["essential_by_products_name"]}`).parent().parent().hide();
+        // $(`#${itmobj1["is_follow"]}`).parent().parent().hide();
+        $(`#${itmobj1["essential_by_products_name"]}`).val("");
+        // $(`#${itmobj1["is_follow"]}`).attr("checked", false);
+    }
+}

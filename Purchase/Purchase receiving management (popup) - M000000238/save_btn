@@ -1,0 +1,25 @@
+var gd11 = grid1_1.getRows();
+var save_flag = true;
+if (gd11.length === 0) save_flag = false;
+if(!save_flag){
+    msg("품목을 추가하십시오!", null, "N");
+    JSRETURN = false;
+}
+
+//check sale type is return
+if ($(`#${itmobj1["sale_type"]}`).val() === "return") {
+    const gd1 = grid1_1.getRows();
+    for (let i = 0; i < gd1.length; i++) {
+        let qty = +nvl(gd1[i][itmobj2["in_qty"]],0);
+        console.log(gd1[i])
+        if (qty > 0) {
+            grid1_1.setValue(i, itmobj2["in_qty"], -qty);
+        }
+    }
+}
+
+const have_tax = $("#" + itmobj1["have_tax"]).val();
+if (have_tax === "") {
+        msg("VAT 선택해주세요!", null, "N");
+        JSRETURN = false;
+}

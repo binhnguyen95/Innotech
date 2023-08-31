@@ -1,0 +1,155 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+     = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    String errorMessage = "";
+    
+    List<Map> list = null;
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {}
+
+            if ( type.equals("delete") ) {}
+            
+            if ( type.equals("cust_btn1") ) {
+                Gson gson = new Gson();
+                if (header != null) {
+                list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom", list.get(i));
+                        
+                        //update header
+                        sql = "update tb_ma_bom set status = 'confirm' where c_item_cd = " + row.get("c_item_cd") + " and prod_item_cd = " + row.get("prod_item_cd") + " ";
+
+                        logger.info("update tb_ma_bom");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                            
+                    }
+                   
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                }
+            }
+            
+            if ( type.equals("cust_btn2") ) {
+                Gson gson = new Gson();
+                if (header != null) {
+                list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom", list.get(i));
+                        
+                        //update header
+                        sql = "update tb_ma_bom set status = 'new' where c_item_cd = " + row.get("c_item_cd") + " and prod_item_cd = " + row.get("prod_item_cd") + " ";
+
+                        logger.info("update tb_ma_bom");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                            
+                    }
+                   
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                }
+            }
+            
+            if ( type.equals("cust_btn3") ) {}
+            
+            
+            if ( type.equals("get_dept") ) {
+                sql = " select top 1 DEPT1 from vw_cm_usermaster where UID = '" + UID + "'";
+                String dept = selectQuery(conn, sql);
+                out.write(new Gson().toJson(dept));
+            }
+
+            
+            if ( type.equals("cust_btn5") ) {}
+            
+            if ( type.equals("excel") ) {}
+            
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

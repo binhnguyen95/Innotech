@@ -1,0 +1,33 @@
+const header_process_qty = $(`#${itmobj1["process_qty"]}`).val();
+const header_process_status = $(`#${itmobj1["process_status"]}`).val();
+const wh_cd = $(`#${itmobj1["wh_cd"]}`).val();
+const input_qty = $(`#${itmobj2["input_qty"]}`).val();
+if (header_process_status === "new" && Number(nvl(header_process_qty,0)) > 0) {
+    $(`#${itmobj1["process_status"]}`).val("processing");
+    grid1.setValue(0,itmobj1["process_status"],"processing");
+}
+
+const gd11 = grid1_1.getRows();
+let flag = true;
+let message = "";
+if (Number(nvl($(`#${itmobj1["process_qty"]}`).val().replace(/,/g, ""),0)) > 100) {
+    flag = false;
+    message = `진척도는 최대 100% 입력 가능합니다!`;
+}
+
+if (wh_cd === "" || wh_cd === null) {
+    flag = false;
+    message = `입고창고 필수 입력입니다!`;
+}
+
+if (flag === false) {
+    msg(message, null, "N");
+    JSRETURN = false;
+}
+
+gd11.forEach((element)=>{
+    if(nvl(element[itmobj2["input_qty"]] , "") == ""){
+        grid1_1.uncheck(element.rowKey);
+    }
+});
+

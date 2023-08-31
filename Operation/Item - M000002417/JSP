@@ -1,0 +1,286 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+
+    String sLine = "";
+    String sText = "";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sql_copy = "";
+    String sqlCoumns = "";
+    String sqlCoumns_copy = "";
+    
+    String sqlValues = "";
+    String sqlValues_copy = "";
+    
+    String sqlDuplis = "";
+    String sqlDuplis_copy = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    String errorMessage = "";
+    String comp_cd = "'in'";
+    String factory_cd = "'in0001'";
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("excel") ) {
+            
+                java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+                java.util.Date time = new java.util.Date();
+                String datetime = dateFormat.format(time);
+                
+                String item_cd = "";
+                String item_type = "";
+                String tp_type = "";
+                Gson gson = new Gson();
+                boolean isInsert = true;
+                
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i++){
+                    
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlCoumns_copy = "";
+                        
+                        sqlValues = "";
+                        sqlValues_copy = "";
+                        
+                        sqlDuplis = "";
+                        sqlDuplis_copy = "";
+                            
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_item", list.get(i));
+                        
+                        if(isInsert){
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        
+                        if (row.get("item_no").equals("'Test'")) {
+                            out.write("error : " + row);    
+                            if (conn != null) conn.close();
+                            if (pstmt != null) pstmt.close();
+                        }
+                        
+                        if (row.get("item_no").equals("NULL")) {
+                            throw new Exception("[품목번호] 필수 입력입니다.");
+                        }
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_ma_item where item_cd = " + row.get("item_cd") + " and comp_cd = " + comp_cd + " and factory_cd = " + factory_cd);
+
+                        isInsert = cnt.equals("0");
+                        
+                        if (isInsert) {
+                            //check dupplicate item no
+                            String cntItemNo = getSOrder(conn, " select count(*) cntItemNo from tb_ma_item where item_no = " + row.get("item_no") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                            if (!cntItemNo.equals("0")) {
+                                throw new Exception("품목번호가 중복되었습니다.");
+                            }
+                            row.put("item_cd", row.get("item_no"));
+                        } 
+                        /*else {
+                            //check dupplicate item no
+                            String cntItemNo = getSOrder(conn, " select count(*) cntItemNo from tb_ma_item where item_no = " + row.get("item_no") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and item_cd <> " + row.get("item_cd"));
+                            if (!cntItemNo.equals("0")) {
+                                throw new Exception("품목번호가 중복되었습니다.");
+                            }
+                        }*/
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {    
+                                String value = row.get(key);
+                                if (!key.equals("item_key")) {
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    
+                                    sqlCoumns += key;
+                                    
+                                    if (!sqlCoumns_copy.equals("")) { sqlCoumns_copy += ", "; }
+                                    
+                                    sqlCoumns_copy += key;
+                                    
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (!sqlValues_copy.equals("")) { sqlValues_copy += ", "; }
+                                    
+                                    if(key.equals("use_yn") && value.equals("NULL")) value = "'Y'";
+                                    
+                                    if (key.equals("comp_cd") && value.equals("NULL")) {
+                                        sqlValues +=  comp_cd;
+                                    } else if (key.equals("factory_cd") && value.equals("NULL")) {
+                                        sqlValues += factory_cd;
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                    
+                                    
+                                    if(key.equals("item_cd")){
+                                        value = value.substring(0, value.length() - 1);
+                                        sqlValues_copy += (value.concat("_ING'"));
+                                    } else if(key.equals("item_no")){
+                                        value = value.substring(0, value.length() - 1);
+                                        sqlValues_copy += (value.concat("_ING'"));
+                                    } else if(key.equals("item_nm")) {
+                                        sqlValues_copy += "'(재공품)" + row.get("item_nm").replace("'", "") + "'";
+                                    } else if(key.equals("item_type")) {
+                                        sqlValues_copy += "'ITEM02'";
+                                    } else if(key.equals("p_item_cd")) {
+                                        sqlValues_copy += row.get("item_cd").toString();
+                                    } else if(key.equals("comp_cd") && value.equals("NULL")) {
+                                        sqlValues_copy += comp_cd;
+                                    } else if(key.equals("factory_cd") && value.equals("NULL")) {
+                                        sqlValues_copy += factory_cd;
+                                    } else {
+                                        sqlValues_copy += value;
+                                    }
+                                    
+                                }
+                                
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("item_cd") && !key.equals("item_no") && !key.equals("item_key") && !key.equals("createuser") && !key.equals("createdate")) {
+                                
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                    
+                                    if (!sqlDuplis_copy.equals("")) { sqlDuplis_copy += ", "; }
+                                    
+                                    if(key.equals("item_cd")){
+                                        sqlDuplis_copy +=  (key + "=" + (value + "_ING"));
+                                    } else if(key.equals("item_nm")) {
+                                        sqlDuplis_copy += (key + "=" + ("'(재공품)" + value.replace("'", "") + "'"));
+                                    } else if(key.equals("item_type")) {
+                                        sqlDuplis_copy += (key + "=" + "'ITEM02'");
+                                    } else if(key.equals("p_item_cd")) {
+                                        sqlDuplis_copy += (key + "=" + row.get("item_cd").toString());
+                                    } else if(key.equals("comp_cd") && value.equals("NULL")) {
+                                        sqlDuplis_copy += (key + "=" + comp_cd);
+                                    } else if(key.equals("factory_cd") && value.equals("NULL")) {
+                                        sqlDuplis_copy += (key + "=" + factory_cd);
+                                    } else if(key.equals("use_yn")) {
+                                        sqlDuplis_copy += (key + "=" + "'Y'");
+                                    } else {
+                                        sqlDuplis_copy += (key + "=" + value);    
+                                    }
+                                }
+                            }
+                        }
+                        
+                        item_type = row.get("item_type").trim();
+                        item_cd = row.get("item_cd").toString();
+
+                        if (isInsert){
+                            sql =  " insert into tb_ma_item (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            
+                            sql_copy =  " insert into tb_ma_item (" + sqlCoumns_copy + ") VALUES (" + sqlValues_copy + ")";
+
+                            /*out.write("error cpy : " + sql + " ");
+                            if (conn != null) conn.close();
+                            if (pstmt != null) pstmt.close();*/
+                            
+                            logger.info("insert into tb_ma_item");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            if (item_type.equals("'ITEM01'")) {
+                                logger.info(sql_copy);
+                                pstmt = conn.prepareStatement(sql_copy);
+                                pstmt.executeUpdate();
+                                addHistory(sql_copy);
+                            }
+                            
+                        } else {
+                            sql = " update tb_ma_item set " + sqlDuplis + " where comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and item_cd = " + row.get("item_cd") + " ";
+                            
+                            sql_copy = " update tb_ma_item set " + sqlDuplis_copy + " where comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and item_cd = " + row.get("item_cd").substring(0, row.get("item_cd").length() - 1) + "_ING'";
+                            
+                            /*out.write("error : " + sql);    
+                            if (conn != null) conn.close();
+                            if (pstmt != null) pstmt.close();*/
+                            
+                            logger.info("update tb_ma_item");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                            
+                            if (item_type.equals("'ITEM01'")) {
+                                logger.info(sql_copy);
+                                pstmt = conn.prepareStatement(sql_copy);
+                                pstmt.executeUpdate();
+                                addHistory("update", sql_copy);
+                            }
+                        }
+                        
+                    }
+                }
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+                
+            }
+            
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+    
+        if (e.getMessage().equals("not found wh_cd")){
+            out.write("error : not found wh_cd");
+        }else{
+            out.write("error : " + e.getMessage());    
+        }
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

@@ -1,0 +1,28 @@
+//set default manager
+if (nvl(grid1.getValue(0, itmobj1["manager_id"]), "") === "") grid1.setValue(0, itmobj1["manager_id"], $("#UID").val());
+if (nvl(grid1.getValue(0, itmobj1["dept_cd"]), "") === "") grid1.setValue(0, itmobj1["dept_cd"], $("#DUMMY10").val());
+
+var gd1 = grid1.getRows();
+if ( gd1.length > 0 ) {
+    grid1.check(0);
+    setTimeout(function() {
+        if (!localStorage.getItem("pur_h_in_grid11") && grid1_1.getRows().length > 0) {
+            localStorage.setItem("pur_h_in_grid11", JSON.stringify(grid1_1.getRows()));
+        }
+    },500)
+}
+
+var gd11 = grid1_1.getRows();
+if ( gd11.length > 0 ) {
+    for (let i = 0; i <= gd11.length; i++) {
+        if (gd11[i][itmobj2["progress_status"]] && gd11[i][itmobj2["progress_status"]] !== "new") {
+            $("#del_btn").hide();
+            break;
+        }
+    }
+}
+
+const order_cd = $("#"+ itmobj1["order_cd"]).val();
+if(order_cd.length > 0){
+    $("#detail-addrow").hide();
+}

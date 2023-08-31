@@ -1,0 +1,7 @@
+
+// if edit mode then hide add-row and del-row
+const invoice_export_cd = $("#"+ itmobj1["invoice_export_cd"]).val();
+if(invoice_export_cd.length > 0){
+    $("#detail-addrow").hide();
+    $("#detail-delrow").hide();
+}

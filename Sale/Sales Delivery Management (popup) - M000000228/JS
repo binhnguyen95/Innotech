@@ -1,0 +1,398 @@
+//remove localStorage
+localStorage.removeItem("sl_delivery_grid11");
+sessionStorage.removeItem("228_checked");
+
+const CSS_INPUT_DISABLE = { 
+    "opacity" : "1",
+    "background-color" : "-internal-light-dark(graytext, rgb(221, 221, 221))"
+    
+};
+const ENABLE = { 
+    "opacity" : "1",
+    "background-color" : "#FFFFFF"
+};
+
+$("#detail-addrow").show();
+$("#detail-delrow").show();
+$("#search_btn").hide();
+$("#reset_btn").hide();
+$("#excelupload1").hide();
+$("#del_btn").on("click", function() {
+    grid1_1.checkAll();
+})
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+var DUMMY10 = parent.$("#DUMMY10").val();
+$("#DUMMY10").val(DUMMY10);
+$(`#${itmobj1["manager_id"]}`).val($("#UID").val());
+$(`#${itmobj1["dept_cd"]}`).val(DUMMY10);
+
+//hide request cd select
+$(`select#${itmobj1["order_cd"]}`).parent().parent().hide();
+
+$("#" + itmobj1["cust_delivery_nm"]).attr("disabled", false);
+$("#" + itmobj1["cust_manager"]).attr("disabled", false);
+$("#" + itmobj1["cust_manager"]).css(ENABLE);
+$("#" + itmobj1["cust_email"]).attr("disabled", false);
+$("#" + itmobj1["cust_email"]).css(ENABLE);
+$("#" + itmobj1["cust_phone_no"]).attr("disabled", false);
+$("#" + itmobj1["cust_phone_no"]).css(ENABLE);
+$(`#${itmobj1["tot_supply_amt"]}`).attr("disabled", true);
+$(`#${itmobj1["tot_supply_amt"]}`).css(CSS_INPUT_DISABLE);
+$(`#${itmobj1["tot_vat_amt"]}`).attr("disabled", true);
+$(`#${itmobj1["tot_vat_amt"]}`).css(CSS_INPUT_DISABLE);
+$(`#${itmobj1["tot_delivery_amt"]}`).attr("disabled", true);
+$(`#${itmobj1["tot_delivery_amt"]}`).css(CSS_INPUT_DISABLE);
+
+
+
+//set status name when add detail
+$("#detail-addrow").on("click", function() {
+    setTimeout(function() {
+        var gd11 = grid1_1.getRows();
+        for (let i = 0; i < gd11.length; i++ ) {
+            if (nvl(gd11[i][itmobj2["progress_status_nm"]],"") === "") {
+                grid1_1.setValue(i, itmobj2["progress_status_nm"], `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`);
+            }
+        }
+    },500)
+})
+//end
+
+
+var detail_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_item_cd_column.onBeforeChange = function (event) {
+    const order_cd = $("#" + itmobj1["order_cd"]).val();
+    const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+    if(order_cd.length > 0 && progress_status !== "created"){
+        event.stop();
+        alert("이 콘텐츠는 편집할 수 없습니다.");
+    }
+};
+
+var detail_delivery_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["delivery_qty"])];
+detail_delivery_qty_column.onBeforeChange = function (event) {
+    const order_cd = $("#" + itmobj1["order_cd"]).val();
+    const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+    if(order_cd.length > 0 && progress_status != "created"){
+        event.stop();
+        alert("이 콘텐츠는 편집할 수 없습니다.");
+    }
+};
+
+var detail_delivery_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["delivery_price"])];
+detail_delivery_price_column.onBeforeChange = function (event) {
+    const order_cd = $("#" + itmobj1["order_cd"]).val();
+    const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+    if(order_cd.length > 0 && progress_status != "created"){
+        event.stop();
+        alert("이 콘텐츠는 편집할 수 없습니다.");
+    }
+};
+
+if (nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != "") {
+  $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+  $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+  $("#" + itmobj1["delivery_cd"]).val(DUMMY3);
+  parent.$("#DUMMY1").val("");
+  parent.$("#DUMMY2").val("");
+  parent.$("#DUMMY3").val("");
+  $("#search_btn").trigger("click");
+  
+} else {
+  //handle jump button from order
+  let orderGrid1 = localStorage.getItem("orderGrid1");
+  let orderGrid11 = localStorage.getItem("orderGrid11");
+  if (orderGrid1 && orderGrid11) {
+    $(`select#${itmobj1["order_cd"]}`).parent().parent().show();
+    $(`select#${itmobj1["order_cd"]}`).attr("disabled", "disabled");
+    $("#detail-delrow").hide();
+    $("#detail-addrow").hide();
+    
+    orderGrid1 = JSON.parse(orderGrid1);
+    $("#" + itmobj1["comp_cd"]).val(orderGrid1[0].comp_cd);
+    $("#" + itmobj1["factory_cd"]).val(orderGrid1[0].factory_cd);
+    //$("#" + itmobj1["project_cd"]).val(orderGrid1[0].project_cd);
+    $("#" + itmobj1["order_cd"]).val(orderGrid1[0].order_cd);
+    $("#" + itmobj1["delivery_type"]).val(orderGrid1[0].order_type);
+    $("#" + itmobj1["sale_type"]).val(orderGrid1[0].sale_type);
+    $("#" + itmobj1["delivery_date"]).val(orderGrid1[0].expected_delivery_date);
+    $("#" + itmobj1["delivery_address"]).val(orderGrid1[0].delivery_place);
+    $("#" + itmobj1["cust_cd"]).val(orderGrid1[0].cust_cd);
+    $("#" + itmobj1["cust_nm"]).val(orderGrid1[0].cust_nm);
+    $("#" + itmobj1["cust_manager"]).val(orderGrid1[0].cust_manager);
+    $("#" + itmobj1["cust_phone_no"]).val(orderGrid1[0].cust_phone_no);
+    $("#" + itmobj1["cust_email"]).val(orderGrid1[0].cust_email);
+    $("#" + itmobj1["cust_purch_manager"]).val(orderGrid1[0].cust_purch_manager);
+    $("#" + itmobj1["cust_purch_phone_no"]).val(orderGrid1[0].cust_purch_phone_no);
+    $("#" + itmobj1["cust_purch_email"]).val(orderGrid1[0].cust_purch_email);
+    $("#" + itmobj1["dept_cd"]).val(orderGrid1[0].dept_cd);
+    $("#" + itmobj1["manager_id"]).val(orderGrid1[0].manager_id);
+    $("#" + itmobj1["have_tax"]).val(orderGrid1[0].have_tax);
+    $("#" + itmobj1["order_no"]).val(orderGrid1[0].order_no);
+    $("#" + itmobj1["project_cd"]).val(orderGrid1[0].project_cd);
+    $("#" + itmobj1["equip_yn"]).val(orderGrid1[0].equip_yn);
+    $("#" + itmobj1["cust_delivery_nm"]).val(orderGrid1[0].cust_delivery_nm);
+    
+    orderGrid11 = JSON.parse(orderGrid11);
+    let tot_supply_amt = 0;
+    let tot_vat_amt = 0;
+    let tot_delivery_amt = 0;
+    const dataOrderGrid11 = orderGrid11.map(item => {
+        let obj = {};
+        obj[itmobj2["progress_status_nm"]] = `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`;
+        obj[itmobj2["progress_status"]] = "created";
+        obj[itmobj2["comp_cd"]] = item.comp_cd;
+        obj[itmobj2["factory_cd"]] = item.factory_cd;
+        obj[itmobj2["order_cd"]] = item.order_cd;
+        obj[itmobj2["order_seq"]] = item.order_seq;
+        obj[itmobj2["project_cd"]] = item.project_cd;
+        obj[itmobj2["item_cd"]] = item.item_cd;
+        obj[itmobj2["item_type_nm"]] = item.item_type_nm;
+        obj[itmobj2["item_no"]] = item.item_no;
+        obj[itmobj2["item_nm"]] = item.item_nm;
+        obj[itmobj2["spec"]] = item.spec;
+        obj[itmobj2["unit"]] = item.unit;
+        obj[itmobj2["p_item_cd"]] = item.p_item_cd;
+        obj[itmobj2["delivery_qty"]] = item.order_qty;
+        obj[itmobj2["delivery_price"]] = item.order_price;
+        obj[itmobj2["supply_amt"]] = item.supply_amt;
+        obj[itmobj2["vat_amt"]] = item.vat_amt;
+        obj[itmobj2["delivery_amt"]] = item.order_amt;
+        tot_supply_amt += +Number(nvl(item.supply_amt,0));
+        tot_vat_amt += +Number(nvl(item.vat_amt,0));
+        tot_delivery_amt += +Number(nvl(item.order_amt,0));
+        return obj;
+    });
+    grid1_1.setData(dataOrderGrid11);
+    
+    $("#" + itmobj1["tot_supply_amt"]).val(formatNumber(tot_supply_amt));
+    $("#" + itmobj1["tot_vat_amt"]).val(formatNumber(tot_vat_amt));
+    $("#" + itmobj1["tot_delivery_amt"]).val(formatNumber(tot_delivery_amt));
+    setTimeout(function() {
+        if (!localStorage.getItem("sl_delivery_grid11") && grid1_1.getRows().length > 0) {
+            localStorage.setItem("sl_delivery_grid11", JSON.stringify(grid1_1.getRows()));
+        }
+    },500)
+  detail_item_cd_column.onBeforeChange = function (event) { event.stop() }
+  }
+  localStorage.removeItem("orderGrid1");
+  localStorage.removeItem("orderGrid11");
+  
+  sessionStorage.setItem("228_checked", "true");
+}
+
+$(`select#${itmobj1["have_tax"]}`).on("change", function () {
+    
+    if (sessionStorage.getItem("228_checked") === "true") {
+        let supply_amt = 0;
+        let vat_amt = 0;
+        let tot_amt = 0;
+      
+    grid1_1.getRows().map((item, index) => {
+        const delivery_qty = grid1_1.getValue(index, itmobj2["delivery_qty"]) ? +grid1_1.getValue(index, itmobj2["delivery_qty"]) : 0;
+        const delivery_price = grid1_1.getValue(index, itmobj2["delivery_price"]) ? +grid1_1.getValue(index, itmobj2["delivery_price"]) : 0;
+        const total = delivery_qty * delivery_price;
+
+        if ($(this).val() === "extax") {
+            supply_amt = Math.round(total);
+            vat_amt = Math.round(total * 0.1);
+            tot_amt = supply_amt + vat_amt;       
+        } else if ($(this).val() === "tax") {
+            tot_amt = Math.round(total);
+            supply_amt = Math.round(total / 1.1);
+            vat_amt = tot_amt - supply_amt;
+        } else {
+            supply_amt = Math.round(total);
+            tot_amt = supply_amt;
+        }
+
+        grid1_1.setValue(index, itmobj2["supply_amt"], supply_amt);
+        grid1_1.setValue(index, itmobj2["vat_amt"], vat_amt);
+        grid1_1.setValue(index, itmobj2["delivery_amt"], tot_amt);
+    });
+    calculateGrid11();
+    }
+
+});
+
+var detail_delivery_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["delivery_qty"])];
+detail_delivery_qty_column.onAfterChange = function(event){
+    setTimeout(function() {
+        calculateVat(event.rowKey);
+    },200)
+}
+
+var detail_delivery_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["delivery_price"])];
+detail_delivery_price_column.onAfterChange = function(event){
+    setTimeout(function() {
+        calculateVat(event.rowKey);
+    },200)
+}
+
+var detail_supply_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["supply_amt"])];
+detail_supply_amt_column.onAfterChange = function(event){
+    setTimeout(function() {
+        const supply_amt = grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]): 0;
+        const vat_amt = grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) : 0;
+
+        grid1_1.setValue(event.rowKey, itmobj2["delivery_amt"], supply_amt + vat_amt);
+
+        calculateGrid11();
+    },200)
+}
+
+var detail_vat_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["vat_amt"])];
+detail_vat_amt_column.onAfterChange = async function(event){
+    setTimeout(function() {
+        const supply_amt = grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]): 0;
+        const vat_amt = grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) : 0;
+
+        grid1_1.setValue(event.rowKey, itmobj2["delivery_amt"], supply_amt + vat_amt);
+
+        calculateGrid11();
+    },200)
+}
+
+function calculateVat(rowKey){
+    const have_tax = $(`select#${itmobj1["have_tax"]}`).val();    
+    let supply_amt = 0;
+    let vat_amt = 0;
+    let tot_amt = 0;
+
+    const delivery_qty = grid1_1.getValue(rowKey, itmobj2["delivery_qty"])? +grid1_1.getValue(rowKey, itmobj2["delivery_qty"]): 0;
+    const delivery_price = grid1_1.getValue(rowKey, itmobj2["delivery_price"]) ? +grid1_1.getValue(rowKey, itmobj2["delivery_price"]) : 0;
+    const total = delivery_qty * delivery_price;
+
+    if (have_tax === "extax") {
+        supply_amt = Math.round(total);
+        vat_amt = Math.round(total * 0.1);
+        tot_amt = supply_amt + vat_amt;
+    } else if (have_tax === "tax") { 
+        tot_amt = Math.round(total);
+        supply_amt = Math.round(total / 1.1);
+        vat_amt = tot_amt - supply_amt;
+    } else {
+        supply_amt = Math.round(total);
+        tot_amt = supply_amt;
+    }
+
+    grid1_1.setValue(rowKey, itmobj2["supply_amt"], supply_amt);
+    grid1_1.setValue(rowKey, itmobj2["vat_amt"], vat_amt);
+    grid1_1.setValue(rowKey, itmobj2["delivery_amt"], tot_amt);
+
+    calculateGrid11();
+}
+
+function calculateGrid11() {
+  let tot_supply_amt = 0;
+  let tot_vat_amt = 0;
+  let tot_delivery_amt = 0;
+  
+  grid1_1.getRows().map((item, index) => {
+    tot_supply_amt += grid1_1.getValue(index, itmobj2["supply_amt"])
+      ? +grid1_1.getValue(index, itmobj2["supply_amt"])
+      : 0;
+    tot_vat_amt += grid1_1.getValue(index, itmobj2["vat_amt"])
+      ? +grid1_1.getValue(index, itmobj2["vat_amt"])
+      : 0;
+    tot_delivery_amt += grid1_1.getValue(index, itmobj2["delivery_amt"])
+      ? +grid1_1.getValue(index, itmobj2["delivery_amt"])
+      : 0;
+  });
+  $(`#${itmobj1["tot_supply_amt"]}`).val(formatNumber(tot_supply_amt));
+  grid1.setValue(0, itmobj1["tot_supply_amt"], formatNumber(tot_supply_amt));
+
+  $(`#${itmobj1["tot_vat_amt"]}`).val(formatNumber(tot_vat_amt));
+  grid1.setValue(0, itmobj1["tot_vat_amt"], formatNumber(tot_vat_amt));
+
+  $(`#${itmobj1["tot_delivery_amt"]}`).val(formatNumber(tot_delivery_amt));
+  grid1.setValue(0, itmobj1["tot_delivery_amt"], formatNumber(tot_delivery_amt));
+}
+
+
+//validate grid1_1
+var detail_project_cd_column =
+  grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["project_cd"])];
+detail_project_cd_column.onAfterChange = function (event) {
+    //validate when connected order
+  const order_cd = grid1_1.getValue(event.rowKey, itmobj2["order_cd"]);
+  const order_seq = grid1_1.getValue(event.rowKey, itmobj2["order_seq"]);
+  const delivery_seq = grid1_1.getValue(event.rowKey, itmobj2["delivery_seq"]);
+  if (nvl(order_cd,"") != "" && nvl(order_seq,"") != "" && nvl(delivery_seq,"") != "") {
+      resetToOriginalValue(event.rowKey, order_seq, delivery_seq)
+  } else {
+       //validate when connected sale
+      const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+      if (progress_status && progress_status !== "created") {
+          resetToOriginalValue(event.rowKey, order_seq, delivery_seq)
+      }
+  }
+};
+// var detail_item_cd_column =
+//   grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+// detail_item_cd_column.onAfterChange = function (event) {
+//     //validate when connected order
+//   const order_cd = grid1_1.getValue(event.rowKey, itmobj2["order_cd"]);
+//   const order_seq = grid1_1.getValue(event.rowKey, itmobj2["order_seq"]);
+//   const delivery_seq = grid1_1.getValue(event.rowKey, itmobj2["delivery_seq"]);
+//   if (nvl(order_cd,"") != "" && nvl(order_seq,"") != "" && nvl(delivery_seq,"") != "") {
+//       resetToOriginalValue(event.rowKey, order_seq, delivery_seq)
+//   } else {
+//       //validate when connected sale
+//       const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+//       if (progress_status && progress_status !== "created") {
+//           resetToOriginalValue(event.rowKey, order_seq, delivery_seq)
+//       }
+//   }
+// };
+
+
+
+//end
+
+//check select row in grid1_1
+grid1_1.on("check", function(event) {
+    //hide delete btn when progress_status != new
+    const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+    if (progress_status && progress_status !== "created") {
+        $("#detail-delrow").hide();
+    }
+})
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function () {
+  if ($(this).val() == "Y") {
+    $(this).val("N");
+    parent.$("#search_btn").trigger("click");
+    parent.grid1_1.clear();
+    parent.$("#NMODModal").dialog("destroy");
+  }
+});
+
+function resetToOriginalValue(row_key, order_seq, delivery_seq) {
+    let data = localStorage.getItem("sl_delivery_grid11");
+    if (data) {
+        data = JSON.parse(data);
+        //lay ra gia tri ban dau theo order_seq or delivery_seq
+        let row;
+        if (nvl(order_seq,"") != "") row = data.filter(item => item[itmobj2["order_seq"]] === order_seq);
+        if (nvl(delivery_seq,"") != "") row = data.filter(item => item[itmobj2["delivery_seq"]] === delivery_seq);
+        if (row.length > 0) {
+            grid1_1.setValue(row_key, itmobj2["project_cd"], row[0][itmobj2["project_cd"]]);
+            grid1_1.setValue(row_key, itmobj2["item_cd"], row[0][itmobj2["item_cd"]]);
+            grid1_1.setValue(row_key, itmobj2["item_no"], row[0][itmobj2["item_no"]]);
+            grid1_1.setValue(row_key, itmobj2["item_nm"], row[0][itmobj2["item_nm"]]);
+            grid1_1.setValue(row_key, itmobj2["spec"], row[0][itmobj2["spec"]]);
+            grid1_1.setValue(row_key, itmobj2["unit"], row[0][itmobj2["unit"]]);
+            grid1_1.setValue(row_key, itmobj2["delivery_qty"], row[0][itmobj2["delivery_qty"]]);
+            grid1_1.setValue(row_key, itmobj2["delivery_price"], row[0][itmobj2["delivery_price"]]);
+            grid1_1.setValue(row_key, itmobj2["supply_amt"], row[0][itmobj2["supply_amt"]]);
+            grid1_1.setValue(row_key, itmobj2["vat_amt"], row[0][itmobj2["vat_amt"]]);
+            grid1_1.setValue(row_key, itmobj2["delivery_amt"], row[0][itmobj2["delivery_amt"]]);
+            alert("이 콘텐츠는 편집할 수 없습니다.");
+        }
+    }
+}
+
+

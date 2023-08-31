@@ -1,0 +1,523 @@
+SetExcelUploadAjaxCustom();
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+$("#reset_btn").on("click", function(){
+    setTimeout(function(){
+        grid1_1.clear();
+    }, 300);
+});
+
+//get dept_cd current account
+$("#DUMMY10").val("");
+var data = {};
+data.type = "cust_btn10";
+data.menucode = "M000000221";
+data.UID = $("#UID").val();
+
+$.ajax({
+  type: "POST",
+  url: "/ajax.do",
+  data: data,
+  success: function (response, status, request) {
+    if (status === "success") {
+      $("#DUMMY10").val(response.trim());
+    }
+  },
+  error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+grid1.on("dblclick",function(ev){
+    // 그리드 숫자 더블클릭 시 수정창 열리기
+    if(nvl(ev.rowKey + "", "") != ""){
+        grid1.check(ev.rowKey);
+        $("#cust_btn2").trigger("click"); 
+    }
+});
+
+$("#reset_btn").on("click", function(){
+    $("#DUMMY1").val("");
+    $("#DUMMY2").val("");
+    $("#DUMMY3").val("");
+});
+$("#cust_btn1").on("click", function(){
+    $("#DUMMY1").val("");
+    $("#DUMMY2").val("");
+    $("#DUMMY3").val("");
+});
+$("#cust_btn2").on("click", function(){
+    var gd1 = grid1.getCheckedRows();
+    if(gd1.length == 1){
+        $("#DUMMY1").val("in");
+        $("#DUMMY2").val("in0001");
+        $("#DUMMY3").val(gd1[0][itmobj1["delivery_cd"]]);
+    }
+});
+
+//check grid1 auto check grid1_1
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["progress_status"]] !== "completed") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+
+function findValueSameOfAll(data = [], key){
+    let a = data[0][key];
+    let isSame = true;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][key] !== a) {
+        isSame = false;
+        break;
+      }
+    }
+    if (isSame) {
+      return a;
+    } else {
+      return false;
+    }
+
+}
+
+//handle jump to sales
+$("#cust_btn3").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length >= 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+        //validate xu ly kho xong moi chuyen sang xu ly doanh thu duoc
+        
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      //obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      
+      obj.order_cd = findValueSameOfAll(gd1, itmobj1["order_cd"]);
+      obj.delivery_cd = findValueSameOfAll(gd1, itmobj1["delivery_cd"]);
+      obj.delivery_type = findValueSameOfAll(gd1, itmobj1["delivery_type"]);
+      obj.sale_type = findValueSameOfAll(gd1, itmobj1["sale_type"]);
+      obj.order_date = findValueSameOfAll(gd1, itmobj1["order_date"]);
+      obj.delivery_date = findValueSameOfAll(gd1, itmobj1["delivery_date"]);
+      obj.delivery_address = findValueSameOfAll(gd1, itmobj1["delivery_address"]);
+      obj.wh_cd = findValueSameOfAll(gd1, itmobj1["wh_cd"]);
+      obj.cust_cd = findValueSameOfAll(gd1, itmobj1["cust_cd"]);
+      obj.cust_nm = findValueSameOfAll(gd1, itmobj1["cust_nm"]);
+      obj.cust_manager = findValueSameOfAll(gd1, itmobj1["cust_manager"]);
+      obj.cust_phone_no = findValueSameOfAll(gd1, itmobj1["cust_phone_no"]);
+      
+      obj.cust_email = findValueSameOfAll(gd1, itmobj1["cust_email"]);
+      obj.cust_purch_manager = findValueSameOfAll(gd1, itmobj1["cust_purch_manager"]);
+      obj.cust_purch_phone_no = findValueSameOfAll(gd1, itmobj1["cust_purch_phone_no"]);
+      obj.cust_purch_email = findValueSameOfAll(gd1, itmobj1["cust_purch_email"]);
+      obj.dept_cd = findValueSameOfAll(gd1, itmobj1["dept_cd"]);
+      obj.manager_id = findValueSameOfAll(gd1, itmobj1["manager_id"]);
+      obj.have_tax = findValueSameOfAll(gd1, itmobj1["have_tax"]);
+      obj.order_no = findValueSameOfAll(gd1, itmobj1["order_no"]);
+      obj.project_cd = findValueSameOfAll(gd1, itmobj1["project_cd"]);
+      obj.equip_yn = findValueSameOfAll(gd1, itmobj1["equip_yn"]);
+      obj.cust_delivery_nm = findValueSameOfAll(gd1, itmobj1["cust_delivery_nm"]);
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+       if (nvl(gd11[i][itmobj2["progress_qty"]], 0) !== 0 && (+gd11[i][itmobj2["delivery_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0)) <= 0) {
+        msg(`데이터가 완성되었습니다!`, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+      
+        if (gd11[i][itmobj2["progress_status"]] != "confirmed" && gd11[i][itmobj2["progress_status"]] != "delivery_complete") {
+            msg(`확정처리를  먼저 하십시오!`, null, "N");
+            if ($("#msgconfirm").is(":visible")) {
+              $("#msgconfirm").dialog("destroy");
+            }
+            return false;
+        }
+
+      
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.delivery_cd = gd11[i][itmobj2["delivery_cd"]];
+      obj.delivery_seq = gd11[i][itmobj2["delivery_seq"]];
+      obj.project_cd = gd11[i][itmobj2["project_cd"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.p_item_cd = gd11[i][itmobj2["p_item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.delivery_qty = +gd11[i][itmobj2["delivery_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0);
+      obj.delivery_price = gd11[i][itmobj2["delivery_price"]];
+      obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
+      obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
+      obj.delivery_amt =  gd11[i][itmobj2["delivery_amt"]];
+      obj.progress_qty = gd11[i][itmobj2["progress_qty"]];
+      obj.progress_status = gd11[i][itmobj2["progress_status"]];
+      gd11Convert.push(obj);
+    }
+    localStorage.setItem("deliveryGrid1", JSON.stringify(gd1Convert));
+    localStorage.setItem("deliveryGrid11", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000000229_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000000229").trigger("click");
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});
+
+$("#cust_btn4").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0 && checked11.length) {
+        let check_flag = true;
+        let error_msg = "";
+        for(let i = 0; i < checked.length; i++) {
+            if (nvl(checked[i][itmobj1["wh_cd"]],"") === "") {
+                check_flag = false;
+                error_msg = "출고 창고를 선택하십시오!"
+                break;
+            }
+        }
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"created") !== "created") {
+                error_msg = "작성 상태만 확정처리가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }    
+
+        if (check_flag) {
+            if (confirm("확정처리하시겠습니까?")) {
+                let header = [];
+                for(let i = 0; i < checked.length; i++) {
+                    const item = {};
+                    item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                    item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                    item.delivery_cd = checked[i][itmobj1["delivery_cd"]];
+                    item.delivery_date = checked[i][itmobj1["delivery_date"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn4";
+                data.menucode = "M000000227";
+                data.header = JSON.stringify(header);
+                
+                $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) { 
+                        response = JSON.parse(response);
+                        if (response.result == "Success.") {
+                            msg("확정처리가 완료되었습니다!", null, "N");
+                            $("#search_btn").trigger("click")
+                        } else {
+                            msg(response.result, null, "N");
+                        }
+                    },
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {
+                        
+                        console.log(xmlHttpRequest, txtStatus, errorThrown)
+                    }
+                });
+            }
+        } else {
+            msg(error_msg);
+        }
+    }
+})
+
+$("#cust_btn5").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        for(let i = 0; i < checked.length; i++) {
+            if (nvl(checked[i][itmobj1["wh_cd"]],"") === "") {
+                check_flag = false;
+                error_msg = "출고 창고를 선택하십시오!"
+                break;
+            }
+        }
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"confirmed") !== "confirmed") {
+                error_msg = "확정된 것만  확정 취소가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }
+        
+        if (check_flag) {
+            if (confirm("확정취소하시겠습니까?")) {
+                let header = [];
+                for(let i = 0; i < checked.length; i++) {
+                    const item = {};
+                    item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                    item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                    item.delivery_cd = checked[i][itmobj1["delivery_cd"]];
+                    item.delivery_date = checked[i][itmobj1["delivery_date"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn5";
+                data.menucode = "M000000227";
+                data.header = JSON.stringify(header);
+                
+                $.ajax({
+                type: "POST",
+                url: "/ajax.do",
+                data: data,
+                success: function(response, status, request) {
+                    response = JSON.parse(response);
+                    if (response.result == "Success.") {
+                        msg("확정취소가 완료되었습니다!", null, "N");
+                        $("#search_btn").trigger("click")
+                    } else {
+                        msg(response.result, null, "N");
+                    }
+                },
+                error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                    
+                });
+            }
+        } else {
+            msg(error_msg);
+        }
+    }
+})
+
+//handle jump button from order
+let orderGrid1 = localStorage.getItem("orderGrid1");
+let orderGrid11 = localStorage.getItem("orderGrid11");
+if (orderGrid1 && orderGrid11) {
+  $("#cust_btn1").trigger("click");
+}
+
+// if  checked > 2 and and same customer then group detail
+grid1.on("check uncheck", function (event){
+    grid1_1.clear();
+    let rowsChecked = grid1.getCheckedRows();
+    
+    const rowKey_checked = rowsChecked.reduce((array, item) => {
+        array.push(item.rowKey);
+        return array;
+    }, []);
+    
+    let event_row = event.rowKey;
+    
+    rowKey_checked.includes(event_row) ? event_row = "check" : event_row = "uncheck";
+    
+    if(event_row == "uncheck" && rowsChecked.length == 1){
+        grid1.uncheck(rowsChecked[0]);
+        grid1.check(rowsChecked[0]);
+    }
+    
+    const validate = validateBeforeJump(rowsChecked);
+
+    if(validate && rowsChecked.length > 1 ){
+        let header = grid1.getCheckedRows();
+
+        header = header.reduce((array, item)=>{
+            array.push(item[itmobj1["delivery_cd"]]);
+            return array;
+        }, []);
+        
+        
+        
+        var detail = [];
+        var sdetail = [];
+
+        var data = {};
+        data.type = "get_data_detail";
+        data.menucode = "M000000227";
+        data.header = encodeURIComponent(JSON.stringify(header));
+        
+        $.ajax({
+        type: "POST",
+        url: "/ajax.do",
+        data: data,
+        success: function(response, status, request) {
+            response = JSON.parse(response);
+            renderDataDetail(response);
+        },
+        error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+            
+        });
+    }
+});
+
+// if the same cust_cd return true else return false
+function validateBeforeJump(grid1_checked_rows){
+    // if the same cust_cd return empty array else return array more than 1 element
+    const result = grid1_checked_rows.reduce((array, current, index, src)=>{
+        if (index !== 0 && current[itmobj1["cust_cd"]] != src[index - 1][itmobj1["cust_cd"]]){
+    	    array.push(current[itmobj1["cust_cd"]]);
+        }
+        return array;
+    }, []);
+    
+    if(result.length == 0){
+        return true;
+    }
+    
+    return false;
+}
+
+function renderDataDetail(in_requestGrid11){ console.log("in render");
+    for (let i = 0; i < in_requestGrid11.length; i++) {
+      if (nvl(in_requestGrid11[i].delivery_cd, "") !== "") {
+        $("#detail-addrow").trigger("click");
+        grid1_1.setValue(i, itmobj2["comp_cd"], in_requestGrid11[i].comp_cd);
+        grid1_1.setValue(i, itmobj2["factory_cd"], in_requestGrid11[i].factory_cd);
+        grid1_1.setValue(i, itmobj2["createuser"], in_requestGrid11[i].createuser);
+        grid1_1.setValue(i, itmobj2["createdate"], in_requestGrid11[i].createdate);
+        grid1_1.setValue(i, itmobj2["updateuser"], in_requestGrid11[i].updateuser);
+        grid1_1.setValue(i, itmobj2["updatedate"], in_requestGrid11[i].updatedate);
+        
+        grid1_1.setValue(i, itmobj2["delivery_amt"], in_requestGrid11[i].delivery_amt);
+        
+        grid1_1.setValue(i, itmobj2["delivery_cd"], in_requestGrid11[i].delivery_cd);
+        
+        grid1_1.setValue(i, itmobj2["delivery_price"], in_requestGrid11[i].delivery_price);
+        
+        grid1_1.setValue(i, itmobj2["delivery_qty"], in_requestGrid11[i].delivery_qty);
+        
+        grid1_1.setValue(i, itmobj2["delivery_seq"], in_requestGrid11[i].delivery_seq);
+        
+        grid1_1.setValue(i, itmobj2["item_cd"], in_requestGrid11[i].item_cd);
+        grid1_1.setValue(i, itmobj2["item_nm"], in_requestGrid11[i].item_nm);
+        grid1_1.setValue(i, itmobj2["unit"], in_requestGrid11[i].unit);
+        grid1_1.setValue(i, itmobj2["spec"], in_requestGrid11[i].spec);
+        
+        grid1_1.setValue(i, itmobj2["order_cd"], in_requestGrid11[i].order_cd);
+        
+        grid1_1.setValue(i, itmobj2["order_seq"], in_requestGrid11[i].order_seq);
+        
+        grid1_1.setValue(i, itmobj2["progress_qty"], in_requestGrid11[i].progress_qty);
+        
+        
+        
+        grid1_1.setValue(i, itmobj2["progress_status"], in_requestGrid11[i].progress_status);
+        // $("#" + itmobj2["item_cd"]).prop("disabled", true);
+        
+        grid1_1.setValue(i, itmobj2["progress_status_nm"], in_requestGrid11[i].progress_status_nm);
+        
+        grid1_1.setValue(i, itmobj2["project_cd"], in_requestGrid11[i].project_cd);
+        
+        grid1_1.setValue(i, itmobj2["supply_amt"], in_requestGrid11[i].supply_amt);
+        
+        grid1_1.setValue(i, itmobj2["use_yn"], in_requestGrid11[i].use_yn);
+        
+        grid1_1.setValue(i, itmobj2["vat_amt"], in_requestGrid11[i].vat_amt);
+        
+
+      }
+    }
+}
+
+function SetExcelUploadAjaxCustom() {
+    $("#ExcelModal_Save").parent().append("<button class=\"menuadd-btn\" id=\"ExcelModal_Save_Check\">적용</button>");
+    $("#ExcelModal_Save").hide();
+    
+    $("#ExcelModal_Save_Check").click(function(){
+        var excelData = JSON.parse($("#EXCELJSON").val());
+        
+        var cols = grid_excelup.getColumns();
+        
+        var dataArr = [];
+        
+        for(var i = 0; i < excelData.length; i++) {
+            var obj = {};
+            
+            Object.keys(excelData[i]).forEach(function(key){
+                var value = ConvertSystemSourcetoHtml(excelData[i][key]);
+                for(var col=0; col<cols.length; col++) {
+                    var id = cols[col].name;
+                    if(id == key) {
+                        var name = cols[col].targetcode;
+                        obj[name] = value;
+                        break;
+                    }
+                }
+            });
+            
+            dataArr.push(obj);
+        }
+        
+        var dataArrType = "header";
+        if($("#EXCELUP_VAL").val() == "DETAIL") {
+            dataArrType = "detail";
+        }
+        else if($("#EXCELUP_VAL").val() == "SDETAIL") {
+            dataArrType = "sdetail";
+        }
+        
+        var data = {};
+        data.LANGTYPE = $("#lang").val();
+        data.SYSTEMCODE = $("#systemcode").val();
+        data.MENUCODE = $("#menucode").val();
+        data.type = "excel";
+        data.UID = $("#UID").val();
+        
+        var postdata = "data=" + encodeURIComponent(JSON.stringify(data));
+        postdata += "&type=excel";
+        postdata += "&UID=" + $("#UID").val();
+        postdata += "&menucode=" + $("#menucode").val();
+        postdata += "&" + dataArrType + "=" + encodeURIComponent(JSON.stringify(dataArr));
+        
+        $.ajax({
+            type: "post",
+            url: "/ajax.do",
+            data: postdata,
+            success: function(e, t, i) {
+                if(e.trim() === "error : not found wh_cd"){
+                    msg("창고코드를 다시 확인하십시오!", null, "N");
+                    return;
+                }
+                
+                var a = JSON.parse(e),
+                    e = a.result,
+                    a = a.CNT;
+                    
+                "Y" == e ? ($("#EXCELJSON").val(""), $("#ExcelModal").dialog("destroy"), "Y" == $("#SAVETYPE").val() && msg(langObj.JS0000003, null, "N")) : (null != a && "" != a && grid_excelup.focusAt(a, "0", !0), null != e && "" != e ? (e = decodeURIComponent(e).replace(/\+/g, " "), msg(langObj.JS0000004, e, "Y")) : msg(langObj.JS0000004, null, "Y")), setTimeout(function() {
+                    "Y" == $("#LOADYN").val() && $.isLoading("hide")
+                }, 10)
+            },
+            error: function(e, t, i) {
+                var a = e.responseText;
+                null != a && "" != a && a.indexOf("<!DOCTYPE html><html>") < 0 && (a = decodeURIComponent(e.responseText)), msghtml(langObj.JS0000004, a, "Y"), setTimeout(function() {
+                    "Y" == $("#LOADYN").val() && $.isLoading("hide")
+                }, 10)
+            }
+        });
+    });
+}
+
+
+

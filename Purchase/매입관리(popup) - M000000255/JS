@@ -1,0 +1,359 @@
+//remove localStorage
+localStorage.removeItem("pur_h_in_grid11");
+sessionStorage.removeItem("255_checked");
+
+$("#detail-delrow").show();
+$("#search_btn").hide();
+$("#reset_btn").hide();
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+var DUMMY10 = parent.$("#DUMMY10").val();
+$("#DUMMY10").val(DUMMY10);
+$(`#${itmobj1["manager_id"]}`).val($("#UID").val());
+$(`#${itmobj1["dept_cd"]}`).val(DUMMY10);
+
+const CSS_INPUT_DISABLE = { 
+    "opacity" : "1",
+    "background-color" : "-internal-light-dark(graytext, rgb(221, 221, 221))"
+    
+};
+$(`#${itmobj1["tot_supply_amt"]}`).attr("disabled", true);
+$(`#${itmobj1["tot_supply_amt"]}`).css(CSS_INPUT_DISABLE);
+$(`#${itmobj1["tot_vat"]}`).attr("disabled", true);
+$(`#${itmobj1["tot_vat"]}`).css(CSS_INPUT_DISABLE);
+$(`#${itmobj1["tot_in_amt"]}`).attr("disabled", true);
+$(`#${itmobj1["tot_in_amt"]}`).css(CSS_INPUT_DISABLE);
+
+//hide in cd select
+$(`select#${itmobj1["in_cd"]}`).parent().parent().hide();
+
+//set status name when add detail
+$("#detail-addrow").on("click", function() {
+    setTimeout(function() {
+        var gd11 = grid1_1.getRows();
+        for (let i = 0; i < gd11.length; i++ ) {
+            if (nvl(gd11[i][itmobj2["progress_status_nm"]],"") === "") {
+                grid1_1.setValue(i, itmobj2["progress_status_nm"], `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`);
+            }
+        }
+    },500)
+})
+//end
+
+$(`select#${itmobj1["have_tax"]}`).on("change", async function () {
+    if (sessionStorage.getItem("255_checked") === "true") {
+        let supply_amt = 0;
+        let vat_amt = 0;
+        let tot_amt = 0;
+      
+    grid1_1.getColumns().map((item, index) => {
+        
+        const order_qty = grid1_1.getValue(index, itmobj2["order_qty"]) ? +grid1_1.getValue(index, itmobj2["order_qty"]) : 0;
+        const in_price = grid1_1.getValue(index, itmobj2["in_price"]) ? +grid1_1.getValue(index, itmobj2["in_price"]) : 0;
+        const total = order_qty * in_price;
+
+            if ($(this).val() === "extax") {
+                supply_amt = Math.round(total);
+                vat_amt = Math.round(total * 0.1);
+                tot_amt = supply_amt + vat_amt;       
+            } else if ($(this).val() === "tax") {
+                tot_amt = Math.round(total);
+                supply_amt = Math.round(total / 1.1);
+                vat_amt = tot_amt - supply_amt;
+            } else {
+                supply_amt = Math.round(total);
+                tot_amt = supply_amt;
+            }
+
+            grid1_1.setValue(index, itmobj2["supply_amt"], supply_amt);
+            grid1_1.setValue(index, itmobj2["vat_amt"], vat_amt);
+            grid1_1.setValue(index, itmobj2["in_amt"], tot_amt);
+      });
+    calculateGrid11();
+    }
+});
+
+var detail_order_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["order_qty"])];
+detail_order_qty_column.onAfterChange = function(event){
+    setTimeout(function() {
+        calculateVat(event.rowKey);
+    },200)
+};
+
+var detail_in_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["in_price"])];
+detail_in_price_column.onAfterChange = function(event){
+    setTimeout(function() {
+        calculateVat(event.rowKey);
+    },200)
+};
+
+var detail_supply_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["supply_amt"])];
+detail_supply_amt_column.onAfterChange = function(event){
+    setTimeout(function() {
+        const supply_amt = grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]): 0;
+        const vat_amt = grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) : 0;
+
+        grid1_1.setValue(event.rowKey, itmobj2["in_amt"], supply_amt + vat_amt);
+
+        calculateGrid11();
+    },200)
+}
+
+var detail_vat_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["vat_amt"])];
+detail_vat_amt_column.onAfterChange = async function(event){
+    setTimeout(function() {
+        const supply_amt = grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["supply_amt"]): 0;
+        const vat_amt = grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) : 0;
+
+        grid1_1.setValue(event.rowKey, itmobj2["in_amt"], supply_amt + vat_amt);
+
+        calculateGrid11();
+    },200)
+}
+
+function calculateVat(rowKey) {
+    const have_tax = $(`select#${itmobj1["have_tax"]}`).val();    
+    let supply_amt = 0;
+    let vat_amt = 0;
+    let tot_amt = 0;
+
+    const order_qty = grid1_1.getValue(rowKey, itmobj2["order_qty"])? +grid1_1.getValue(rowKey, itmobj2["order_qty"]): 0;
+    const in_price = grid1_1.getValue(rowKey, itmobj2["in_price"]) ? +grid1_1.getValue(rowKey, itmobj2["in_price"]) : 0;
+    const total = order_qty * in_price;
+
+    if (have_tax === "extax") {
+        supply_amt = Math.round(total);
+        vat_amt = Math.round(total * 0.1);
+        tot_amt = supply_amt + vat_amt;
+    } else if (have_tax === "tax") { 
+        tot_amt = Math.round(total);
+        supply_amt = Math.round(total / 1.1);
+        vat_amt = tot_amt - supply_amt;
+    } else {
+        supply_amt = Math.round(total);
+        tot_amt = supply_amt;
+    }
+
+    grid1_1.setValue(rowKey, itmobj2["supply_amt"], supply_amt);
+    grid1_1.setValue(rowKey, itmobj2["vat_amt"], vat_amt);
+    grid1_1.setValue(rowKey, itmobj2["in_amt"], tot_amt);
+
+    calculateGrid11();
+}
+
+
+function calculateGrid11() {
+    let tot_supply_amt = 0;
+    let tot_vat = 0;
+    let tot_in_amt = 0;
+    
+    grid1_1.getColumns().map((item, index) => {
+        tot_supply_amt += grid1_1.getValue(index, itmobj2["supply_amt"]) ? +grid1_1.getValue(index, itmobj2["supply_amt"]) : 0;
+        tot_vat += grid1_1.getValue(index, itmobj2["vat_amt"]) ? +grid1_1.getValue(index, itmobj2["vat_amt"]) : 0;
+        tot_in_amt += grid1_1.getValue(index, itmobj2["in_amt"]) ? +grid1_1.getValue(index, itmobj2["in_amt"]) : 0;
+    });
+  
+    $(`#${itmobj1["tot_supply_amt"]}`).val(formatNumber(tot_supply_amt));
+    grid1.setValue(0, itmobj1["tot_supply_amt"], formatNumber(tot_supply_amt));
+
+    $(`#${itmobj1["tot_vat"]}`).val(formatNumber(tot_vat));
+    grid1.setValue(0, itmobj1["tot_vat"], formatNumber(tot_vat));
+  
+    $(`#${itmobj1["tot_in_amt"]}`).val(formatNumber(tot_in_amt));
+    grid1.setValue(0,itmobj1["tot_in_amt"],tot_in_amt + "");
+};
+
+//validate grid11
+var detail_item_cd_column =
+  grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_item_cd_column.onAfterChange = function (event) {
+  const in_cd = grid1_1.getValue(event.rowKey, itmobj2["in_cd"]);
+  const in_seq = grid1_1.getValue(event.rowKey, itmobj2["in_seq"]);
+  const h_in_seq = grid1_1.getValue(event.rowKey, itmobj2["h_in_seq"]);
+  if (in_cd && in_seq) {
+      resetToOriginalValue(event.rowKey, in_seq, h_in_seq)
+  } else {
+      const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+      if (progress_status && progress_status !== "new") {
+        resetToOriginalValue(event.rowKey, in_seq, h_in_seq)
+      }
+  }
+};
+var detail_supplier_cd_column =
+  grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["supplier_cd"])];
+detail_supplier_cd_column.onAfterChange = function (event) {
+  const in_cd = grid1_1.getValue(event.rowKey, itmobj2["in_cd"]);
+  const in_seq = grid1_1.getValue(event.rowKey, itmobj2["in_seq"]);
+  const h_in_seq = grid1_1.getValue(event.rowKey, itmobj2["h_in_seq"]);
+  if (in_cd && in_seq) {
+      resetToOriginalValue(event.rowKey, in_seq, h_in_seq)
+  } else {
+      const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+      if (progress_status && progress_status !== "new") {
+        resetToOriginalValue(event.rowKey, in_seq, h_in_seq)
+      }
+  }
+};
+var detail_wh_cd_column =
+  grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["wh_cd"])];
+detail_wh_cd_column.onAfterChange = function (event) {
+  const in_cd = grid1_1.getValue(event.rowKey, itmobj2["in_cd"]);
+  const in_seq = grid1_1.getValue(event.rowKey, itmobj2["in_seq"]);
+  const h_in_seq = grid1_1.getValue(event.rowKey, itmobj2["h_in_seq"]);
+  if (in_cd && in_seq) {
+      resetToOriginalValue(event.rowKey, in_seq, h_in_seq)
+  } else {
+      const progress_status = grid1_1.getValue(event.rowKey, itmobj2["progress_status"]);
+      if (progress_status && progress_status !== "new") {
+        resetToOriginalValue(event.rowKey, in_seq, h_in_seq)
+      }
+  }
+};
+//end
+
+if ( nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != "" ) {
+    $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+    $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+    $("#" + itmobj1["h_in_cd"]).val(DUMMY3);
+    parent.$("#DUMMY1").val("");
+    parent.$("#DUMMY2").val("");
+    parent.$("#DUMMY3").val("");
+    $("#search_btn").trigger("click");
+} else {
+  //handle jump from stock in
+  let inGrid1 = localStorage.getItem("inGrid1");
+  let inGrid11 = localStorage.getItem("inGrid11");
+
+  if (inGrid1 && inGrid11) {
+    $(`select#${itmobj1["in_cd"]}`).parent().parent().show();
+    $(`select#${itmobj1["in_cd"]}`).attr("disabled", "disabled");
+    // $("#detail-delrow").hide();
+    $("#detail-addrow").hide();
+    inGrid1 = JSON.parse(inGrid1);
+    inGrid11 = JSON.parse(inGrid11);
+    renderInData(inGrid1, inGrid11);
+    setTimeout(function() {
+        if (!localStorage.getItem("pur_h_in_grid11") && grid1_1.getRows().length > 0) {
+            localStorage.setItem("pur_h_in_grid11", JSON.stringify(grid1_1.getRows()));
+        }
+    },500)
+  }
+  localStorage.removeItem("inGrid1");
+  localStorage.removeItem("inGrid11");
+  
+  sessionStorage.setItem("255_checked", "true");
+}
+
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function(){
+    if ( $(this).val() == "Y" ) {
+        $(this).val("N");
+        parent.$("#search_btn").trigger("click");
+        // parent.grid1_1.clear();
+        parent.$("#NMODModal").dialog("destroy");
+    }
+});
+
+function resetToOriginalValue(row_key, in_seq, h_in_seq) {
+    let data = localStorage.getItem("pur_h_in_grid11");
+    if (data) {
+        data = JSON.parse(data);
+        //lay ra gia tri ban dau theo in_seq or h_in_seq
+        let row;
+        if (nvl(in_seq,"") != "") row = data.filter(item => item[itmobj2["in_seq"]] === in_seq);
+        if (nvl(h_in_seq,"") != "") row = data.filter(item => item[itmobj2["h_in_seq"]] === h_in_seq);
+        if (row.length > 0) {
+            grid1_1.setValue(row_key, itmobj2["item_cd"], row[0][itmobj2["item_cd"]]);
+            grid1_1.setValue(row_key, itmobj2["item_no"], row[0][itmobj2["item_no"]]);
+            grid1_1.setValue(row_key, itmobj2["item_nm"], row[0][itmobj2["item_nm"]]);
+            grid1_1.setValue(row_key, itmobj2["spec"], row[0][itmobj2["spec"]]);
+            grid1_1.setValue(row_key, itmobj2["unit"], row[0][itmobj2["unit"]]);
+            grid1_1.setValue(row_key, itmobj2["supplier_cd"], row[0][itmobj2["supplier_cd"]]);
+            grid1_1.setValue(row_key, itmobj2["supplier_nm"], row[0][itmobj2["supplier_nm"]]);
+            grid1_1.setValue(row_key, itmobj2["wh_cd"], row[0][itmobj2["wh_cd"]]);
+            grid1_1.setValue(row_key, itmobj2["wh_nm"], row[0][itmobj2["wh_nm"]]);
+            // grid1_1.setValue(row_key, itmobj2["order_qty"], row[0][itmobj2["order_qty"]]);
+            // grid1_1.setValue(row_key, itmobj2["in_price"], row[0][itmobj2["in_price"]]);
+            grid1_1.setValue(row_key, itmobj2["supply_amt"], row[0][itmobj2["supply_amt"]]);
+            grid1_1.setValue(row_key, itmobj2["vat_amt"], row[0][itmobj2["vat_amt"]]);
+            grid1_1.setValue(row_key, itmobj2["in_amt"], row[0][itmobj2["in_amt"]]);
+            alert("이 콘텐츠는 편집할 수 없습니다.");
+        }
+    }
+}
+
+function stopEditCellDisableSave(event) {
+  const in_cd = grid1_1.getValue(event.rowKey, itmobj2["in_cd"]);
+  const in_seq = grid1_1.getValue(event.rowKey, itmobj2["in_seq"]);
+  if (in_cd && in_seq) {
+    msg("이 제품은 이전 프로세스와 연결되어 있습니다. 수정할 수 없습니다.", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    $("#save_btn").hide();
+  }
+}
+
+function renderInData(inGrid1, inGrid11) {
+  grid1.clear();
+  grid1_1.clear();
+  if (inGrid1.length > 0 && inGrid11.length > 0) {
+    $("#" + itmobj1["comp_cd"]).val(inGrid1[0].comp_cd);
+    $("#" + itmobj1["factory_cd"]).val(inGrid1[0].factory_cd);
+    $("#" + itmobj1["request_cd"]).val(inGrid1[0].request_cd);
+    $("#" + itmobj1["order_cd"]).val(inGrid1[0].order_cd);
+    $("#" + itmobj1["in_cd"]).val(inGrid1[0].in_cd);
+    $("#" + itmobj1["project_cd"]).val(inGrid1[0].project_cd);
+    $("#" + itmobj1["project_cd"]).prop("disabled", true);
+    $("#" + itmobj1["project_cd"]).css("background-color","#EEEEEE");
+    $("#" + itmobj1["request_type"]).val(inGrid1[0].request_type);
+    $("#" + itmobj1["sale_type"]).val(inGrid1[0].sale_type);
+    $("#" + itmobj1["have_tax"]).val(inGrid1[0].have_tax);
+    $("#" + itmobj1["in_date"]).val(inGrid1[0].in_date);
+    $("#" + itmobj1["wh_cd"]).val(inGrid1[0].wh_cd);
+    let tot_in_amt = 0;
+    let tot_supply_amt = 0;
+    let tot_vat = 0;
+    
+    const dataInGrid11 = inGrid11.map(item => {
+        let obj = {};
+        obj[itmobj2["progress_status_nm"]] = `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`;
+        obj[itmobj2["comp_cd"]] = item.comp_cd;
+        obj[itmobj2["factory_cd"]] = item.factory_cd;
+        obj[itmobj2["request_cd"]] = item.request_cd;
+        obj[itmobj2["request_seq"]] = item.request_seq;
+        obj[itmobj2["order_cd"]] = item.order_cd;
+        obj[itmobj2["order_seq"]] = item.order_seq;
+        obj[itmobj2["in_cd"]] = item.in_cd;
+        obj[itmobj2["in_seq"]] = item.in_seq;
+        
+        
+        obj[itmobj2["item_cd"]] = item.item_cd;
+        obj[itmobj2["item_type_nm"]] = item.item_type_nm;
+        obj[itmobj2["item_no"]] = item.item_no;
+        obj[itmobj2["item_nm"]] = item.item_nm;
+        obj[itmobj2["spec"]] = item.spec;
+        obj[itmobj2["unit"]] = item.unit;
+        obj[itmobj2["wh_cd"]] = item.wh_cd;
+        obj[itmobj2["wh_nm"]] = item.wh_nm;
+        obj[itmobj2["supplier_cd"]] = item.supplier_cd;
+        obj[itmobj2["supplier_nm"]] = item.supplier_nm;
+        obj[itmobj2["order_qty"]] = item.order_qty;
+        obj[itmobj2["in_qty"]] = item.order_qty;
+        obj[itmobj2["in_price"]] = item.in_price;
+        obj[itmobj2["supply_amt"]] = item.supply_amt;
+        obj[itmobj2["vat_amt"]] = item.vat_amt;
+        obj[itmobj2["in_amt"]] = item.in_amt;
+        tot_supply_amt += +Number(nvl(item.supply_amt,0));
+        tot_vat += +Number(nvl(item.vat_amt,0));
+        tot_in_amt += +Number(nvl(item.in_amt,0));
+        return obj;
+    });
+    grid1_1.setData(dataInGrid11);
+
+    $("#" + itmobj1["tot_supply_amt"]).val(formatNumber(tot_supply_amt));
+    $("#" + itmobj1["tot_vat"]).val(formatNumber(tot_vat));
+    $("#" + itmobj1["tot_in_amt"]).val(formatNumber(tot_in_amt));
+  }
+}

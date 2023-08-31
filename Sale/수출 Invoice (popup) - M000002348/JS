@@ -1,0 +1,271 @@
+$("#detail-addrow").show();
+$("#detail-delrow").show();
+$("#reset_btn").hide();
+$("#search_btn").hide();
+
+const CSS_INPUT_DISABLE = { 
+    "opacity" : "1",
+    "background-color" : "-internal-light-dark(graytext, rgb(221, 221, 221))"
+    
+};
+
+const ENABLE = { 
+    "opacity" : "1",
+    "background-color" : "#FFFFFF"
+};
+
+$("#" + itmobj1["cust_manager"]).attr("disabled", false);
+$("#" + itmobj1["cust_manager"]).css(ENABLE);
+$("#" + itmobj1["cust_email"]).attr("disabled", false);
+$("#" + itmobj1["cust_email"]).css(ENABLE);
+$("#" + itmobj1["cust_phone_no"]).attr("disabled", false);
+$("#" + itmobj1["cust_phone_no"]).css(ENABLE);
+
+$("#detail-addrow").on("click", function() {
+    setTimeout(function() {
+        var gd11 = grid1_1.getRows();
+        for (let i = 0; i < gd11.length; i++ ) {
+            if (nvl(gd11[i][itmobj2["progress_status_nm"]],"") === "") {
+                grid1_1.setValue(i, itmobj2["progress_status_nm"], `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`);
+            }
+        }
+    },500)
+})
+
+//validate
+var detail_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["price"])];
+detail_price_column.onAfterChange = function (event) {
+  calculateGrid11(event.rowKey);
+};
+
+detail_price_column.onBeforeChange = function (event) {
+    if (nvl(grid1_1.getValue(event.rowKey, itmobj2["progress_status"]),"created") !== "created") event.stop();
+};
+
+var detail_currency_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["currency_price"])];
+detail_currency_price_column.onAfterChange = function (event) {
+  calculateGrid11(event.rowKey);
+};
+
+detail_currency_price_column.onBeforeChange = function (event) {
+  if (nvl(grid1_1.getValue(event.rowKey, itmobj2["progress_status"]),"created") !== "created") event.stop();
+};
+
+var detail_qty_column =
+  grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["qty"])];
+detail_qty_column.onAfterChange = function (event) {
+  calculateGrid11(event.rowKey);
+};
+
+detail_qty_column.onBeforeChange = function (event) {
+  if (nvl(grid1_1.getValue(event.rowKey, itmobj2["progress_status"]),"created") !== "created") event.stop();
+};
+
+detail_qty_column.onBeforeChange = function (event) {
+    const order_cd = $("#" + itmobj1["order_cd"]).val();
+    if(order_cd.length > 0){
+     event.stop();   
+    }
+};
+
+
+var detail_item_cd_column =
+  grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_item_cd_column.onBeforeChange = function (event) {
+  if (nvl(grid1_1.getValue(event.rowKey, itmobj2["progress_status"]),"created") !== "created") 
+  event.stop();
+};
+detail_item_cd_column.onBeforeChange = function (event) {
+    const order_cd = $("#" + itmobj1["order_cd"]).val();
+    console.log(order_cd);
+    if(order_cd.length > 0){
+     event.stop();   
+    }
+};
+
+var gd11 = grid1_1.getRows();
+if ( gd11.length > 0 ) {
+    for (let i = 0; i <= gd11.length; i++) {
+        if (gd11[i][itmobj2["progress_status"]] && gd11[i][itmobj2["progress_status"]] !== "created") {
+            $("#" + itmobj1["currency_ratio"]).attr("disabled", true);
+            $("#" + itmobj1["currency_ratio"]).css(CSS_INPUT_DISABLE);
+            break;
+        }
+    }
+}
+//end
+
+//calculate
+$(`#${itmobj1["currency_ratio"]}`).on("change", function () {
+  const ratio = parseFloat(nvl($(this).val().replace(/,/g, ""),0));
+  const fixed = parseFloat(ratio.toFixed(2));
+  console.log(fixed);
+  //set grid1_1
+  const grid11Rows = grid1_1.getRows();
+  for (let i = 0; i < grid11Rows.length; i++) {
+      const qty = parseFloat(nvl(grid1_1.getValue(i, itmobj2["qty"]),0));
+    //   const price = parseFloat(nvl(grid1_1.getValue(i, itmobj2["price"]),0));
+      const currency_price = parseFloat(nvl(grid1_1.getValue(i, itmobj2["currency_price"]),0));
+      const price = currency_price * fixed;
+      
+      grid1_1.setValue(i, itmobj2["price"], (price).toFixed(2) + "");
+      grid1_1.setValue(i, itmobj2["currency_amt"], (currency_price*qty).toFixed(2) + "");
+      calculateGrid11();
+  }
+  $(this).blur();
+});
+
+function calculateGrid11(rowKey) {
+    const currency_price = parseFloat(nvl(grid1_1.getValue(rowKey, itmobj2["currency_price"]),0));
+    const qty = parseFloat(nvl(grid1_1.getValue(rowKey, itmobj2["qty"]),0));
+    const ratio = parseFloat(nvl($(`#${itmobj1["currency_ratio"]}`).val().replace(/,/g, ""),0));
+    const fixed = parseFloat(ratio.toFixed(2));
+    const vat = 0;
+    const price = fixed * currency_price;
+    //set grid1_1
+    grid1_1.setValue(rowKey, itmobj2["supply_amt"], (price*qty) + "");
+    grid1_1.setValue(rowKey, itmobj2["vat_amt"], (price*qty*vat) + "");
+    grid1_1.setValue(rowKey, itmobj2["amt"], (price*qty + price*qty*vat) + "");
+    grid1_1.setValue(rowKey, itmobj2["price"], (currency_price*fixed).toFixed(2) + "");
+    grid1_1.setValue(rowKey, itmobj2["currency_amt"], (currency_price*qty).toFixed(2) + "");
+
+    //set grid1
+    let tot_supply_amt = 0;
+    let tot_vat_amt = 0;
+    let tot_amt = 0;
+    let tot_currency_amt = 0;
+    const grid11Rows = grid1_1.getRows();
+    for (let i = 0; i < grid11Rows.length; i++) {
+        tot_supply_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["supply_amt"]),0));
+        tot_vat_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["vat_amt"]),0));
+        tot_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["amt"]),0));
+        tot_currency_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["currency_amt"]),0));
+    }
+    $(`#${itmobj1["tot_supply_amt"]}`).val(formatNumber(tot_supply_amt));
+
+    $(`#${itmobj1["tot_vat_amt"]}`).val(formatNumber(tot_vat_amt));
+
+    $(`#${itmobj1["tot_amt"]}`).val(formatNumber(tot_amt));
+
+    $(`#${itmobj1["tot_currency_amt"]}`).val(parseFloat(tot_currency_amt).toFixed(2));
+    
+}
+//end calculate
+
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+$("#" + itmobj1["have_tax"]).attr("disabled", true);
+$("#" + itmobj1["have_tax"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["invoice_export_cd"]).attr("disabled", true);
+$("#" + itmobj1["invoice_export_cd"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_supply_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_supply_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_vat_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_vat_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_currency_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_currency_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["order_cd"]).attr("disabled", true);
+$("#" + itmobj1["order_cd"]).css(CSS_INPUT_DISABLE);
+
+if (nvl(DUMMY1, "") !== "" && nvl(DUMMY2, "") !== "" && nvl(DUMMY3, "") !== "") {
+  $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+  $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+  $("#" + itmobj1["invoice_export_cd"]).val(DUMMY3);
+  parent.$("#DUMMY1").val("");
+  parent.$("#DUMMY2").val("");
+  parent.$("#DUMMY3").val("");
+  $("#search_btn").trigger("click");
+} else {
+  //handle jump from request
+  let invoiceGrid1 = localStorage.getItem("invoiceGrid1");
+  let invoiceGrid11 = localStorage.getItem("invoiceGrid11");
+
+  if (invoiceGrid1 && invoiceGrid11) {
+    $(`select#${itmobj1["invoice_export_cd"]}`).parent().parent().show();
+    $(`select#${itmobj1["invoice_export_cd"]}`).attr("disabled", "disabled");
+    // $("#detail-delrow").hide();
+    $("#detail-addrow").hide();
+    invoiceGrid1 = JSON.parse(invoiceGrid1);
+    invoiceGrid11 = JSON.parse(invoiceGrid11);
+    renderData(invoiceGrid1, invoiceGrid11);
+    
+  }
+  localStorage.removeItem("invoiceGrid1");
+  localStorage.removeItem("invoiceGrid11");
+}
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function(){
+    if ( $(this).val() == "Y" ) {
+        $(this).val("N");
+        parent.$("#search_btn").trigger("click");
+        parent.grid1_1.clear();
+        parent.$("#NMODModal").dialog("destroy");
+    }
+});
+
+
+function renderData(invoiceGrid1, invoiceGrid11) {
+    
+    grid1.clear();
+    grid1_1.clear();
+    if (invoiceGrid1.length > 0 && invoiceGrid11.length > 0) {
+        $("#" + itmobj1["comp_cd"]).val(invoiceGrid1[0].comp_cd);
+        $("#" + itmobj1["factory_cd"]).val(invoiceGrid1[0].factory_cd);
+        $("#" + itmobj1["order_cd"]).val(invoiceGrid1[0].order_cd);
+        $("#" + itmobj1["order_cd"]).prop("disabled", true);
+        $("#" + itmobj1["sale_type"]).val(invoiceGrid1[0].sale_type);
+        $("#" + itmobj1["cust_cd"]).val(invoiceGrid1[0].cust_cd);
+        $("#" + itmobj1["cust_nm"]).val(invoiceGrid1[0].cust_nm);
+        $("#" + itmobj1["cust_manager"]).val(invoiceGrid1[0].cust_manager);
+        $("#" + itmobj1["cust_phone_no"]).val(invoiceGrid1[0].cust_phone_no);
+        $("#" + itmobj1["cust_email"]).val(invoiceGrid1[0].cust_email);
+        $("#" + itmobj1["cust_purch_manager"]).val(invoiceGrid1[0].cust_purch_manager);
+        $("#" + itmobj1["cust_purch_phone_no"]).val(invoiceGrid1[0].cust_purch_phone_no);
+        $("#" + itmobj1["cust_purch_email"]).val(invoiceGrid1[0].cust_purch_email);
+        $("#" + itmobj1["dept_cd"]).val(invoiceGrid1[0].dept_cd);
+        $("#" + itmobj1["manager_id"]).val(invoiceGrid1[0].manager_id);
+        $("#" + itmobj1["have_tax"]).val(invoiceGrid1[0].have_tax);
+        $("#" + itmobj1["order_no"]).val(invoiceGrid1[0].order_no);
+        $("#" + itmobj1["project_cd"]).val(invoiceGrid1[0].project_cd);
+        $("#" + itmobj1["project_cd"]).prop("disabled", true);
+        $("#" + itmobj1["equip_yn"]).val(invoiceGrid1[0].equip_yn);
+        $("#" + itmobj1["cust_delivery_nm"]).val(invoiceGrid1[0].cust_delivery_nm);
+        $("#" + itmobj1["tot_supply_amt"]).val(invoiceGrid1[0].tot_supply_amt);
+        $("#" + itmobj1["tot_amt"]).val(invoiceGrid1[0].tot_order_amt);
+        
+        const dataInvoiceGrid11 = invoiceGrid11.map(item => {
+            let obj = {};
+            obj[itmobj2["progress_status_nm"]] = `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`;
+            obj[itmobj2["comp_cd"]] = item.comp_cd;
+            obj[itmobj2["factory_cd"]] = item.factory_cd;
+            obj[itmobj2["order_cd"]] = item.order_cd;
+            obj[itmobj2["order_seq"]] = item.order_seq;
+            obj[itmobj2["project_cd"]] = item.project_cd;
+
+            obj[itmobj2["item_cd"]] = item.item_cd;
+            obj[itmobj2["item_no"]] = item.item_no;
+            obj[itmobj2["item_nm"]] = item.item_nm;
+            obj[itmobj2["spec"]] = item.spec;
+            obj[itmobj2["unit"]] = item.unit;
+            obj[itmobj2["qty"]] = item.order_qty;
+            obj[itmobj2["price"]] = item.order_price;
+            obj[itmobj2["supply_amt"]] = item.supply_amt;
+            obj[itmobj2["vat_amt"]] = item.vat_amt;
+            obj[itmobj2["amt"]] = item.order_amt;
+            return obj;
+        });
+        grid1_1.setData(dataInvoiceGrid11);
+        
+    }
+    detail_item_cd_column.onBeforeChange = function (event) {
+        event.stop();
+    };
+}
+
+
+
+
+

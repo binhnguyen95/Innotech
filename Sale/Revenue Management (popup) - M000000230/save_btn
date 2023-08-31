@@ -1,0 +1,23 @@
+var gd11 = grid1_1.getRows();
+var save_flag = true;
+if (gd11.length === 0) save_flag = false;
+if(!save_flag){
+    msg("Please add item.", null, "N");
+    JSRETURN = false;
+}
+
+const sale_qty = grid1_1.getColumnValues(itmobj2["sale_qty"]);
+const validate_sale_qty = sale_qty.every((element)=>{
+    return typeof parseFloat(element) === "number" && element > 0;
+});
+
+if(!validate_sale_qty){
+     msg("생산수량을 입력하십시오! ", null, "N");
+    JSRETURN = false;
+}
+
+const have_tax = $("#" + itmobj1["have_tax"]).val();
+if (have_tax === "") {
+        msg("VAT여부 필수입력입니다!", null, "N");
+        JSRETURN = false;
+}

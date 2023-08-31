@@ -1,0 +1,107 @@
+
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+
+$(".detail-exceldown").unbind("click");
+$(".detail-exceldown").click(function() {
+     var e = [],
+        t = grid1.getColumns(),
+        i = [];
+    //for (T in t) t[T].hidden && i.push(t[T].name);
+    for (T in t) i.push(t[T].name);
+    var a = $("#MTETC5").val();
+    if (null != a && "" != a && null != a && "undefined" != a) {
+        var n = JSON.parse(decodeURIComponent(a));
+        if (0 < n.length)
+            for (var l = 0 in n)
+                if (null != n[l].name && -1 < n[l].name.indexOf("MERGE")) {
+                    var s = {};
+                    s.name = n[l].name, s.childNames = n[l].childNames;
+                    var d, r, o = !0;
+                    for (d in n[l].childNames) {
+                        var c = n[l].childNames[d]; - 1 < i.indexOf(c) && (o = !1)
+                    }
+                    o && (null != n[l].lang && "" != n[l].lang && (r = JSON.parse(decodeURIComponent(n[l].lang)), s.title = r[$("#lang").val()]), e.push(s))
+                }
+    }
+    var m = $("#JSONHEADER").val();
+    "Y" == $("#LOADYN").val() && $.isLoading({
+        tpl: "<span class=\"isloading-wrapper %wrapper%\"><div class=\"loadingio-spinner-ellipsis-bus78131cg\"><div class=\"ldio-8a4hfl22cb6\"><div></div><div></div><div></div><div></div><div></div></div></div></span>"
+    });
+    var u = [];
+    null != m && "" != m ? u = JSON.parse(m) : "Y" == $("#LOADYN").val() && setTimeout(function() {
+        $.isLoading("hide")
+    }, 500);
+    var p = [],
+        g = [];
+    //for (f in t) 0 == t[f].hidden ? p.push(t[f]) : g.push(t[f].name);
+    for (f in t) p.push(t[f]);
+    if (0 < e.length) {
+        var h = [],
+            v = {},
+            E = {};
+        if (0 < g.length)
+            for (var f = 0 in e) {
+                var b = [];
+                for (T in e[f].childNames) - 1 < g.indexOf(e[f].childNames[T]) || b.push(e[f].childNames[T]);
+                e[f].childNames = b
+            }
+        for (f in e) {
+            for (var T = 0 in h.push(e[f].childNames), e[f].childNames) {
+                var L = "NONTITLE";
+                0 == T && (L = e[f].title), v[e[f].childNames[T]] = L, E[e[f].childNames[T]] = e[f].childNames.length
+            }
+        }
+    }
+    var _ = [],
+        N = [],
+        D = [],
+        O = [];
+    for (T in e)
+        for (f in _.push(e[T].title), N.push(e[T].childNames.length + ""), D.push(e[T].childNames[0]), h = e[T].childNames) O.push(h[f]);
+    var I = {},
+        a = $("#menucode").val();
+    null != a && "" != a || (a = "download");
+    m = I.MENUCODE = a;
+    
+    //hiden col not use when download excel
+    const p_convert = p.filter(item => {
+    return item.title != "progress_status_nm" && item.title != "item_cd" && item.title != "item_no" && item.title != "item_type_nm" && item.title != "comp_cd" && item.title != "factory_cd" && item.title != "work_order_cd" && item.title != "plan_cd" 
+    && item.title != "plan_file" && item.title != "process_status" && item.title != "cust_cd" && item.title != "fromdt" && item.title != "todt" && item.title != "item_ser" && item.title != "use_yn" && item.title != "SIMBIZSETTYPE" 
+    
+    && item.title != "진행상태" && item.title != "프로젝 트코드" && item.title != "등록일(시작)" && item.title != "~" && item.title != "납품번호" && item.title != "제품명"
+    })
+    
+    "" != menuNmobj[a] && null != menuNmobj[a] && (m = menuNmobj[a]), I.MENUNAME = encodeURIComponent(m), I.xlsData = encodeURIComponent(JSON.stringify(grid1.getRows())), I.colData = encodeURIComponent(JSON.stringify(p_convert)), I.compData1 = encodeURIComponent(JSON.stringify(_)), I.compData2 = encodeURIComponent(JSON.stringify(N)), I.compData3 = encodeURIComponent(JSON.stringify(D)), I.compData4 = encodeURIComponent(JSON.stringify(O)), $.fileDownload("bigXlsxDownload.do", {
+        httpMethod: "POST",
+        data: I,
+        successCallback: function(e) {
+            setTimeout(function() {
+                "Y" == $("#LOADYN").val() && $.isLoading("hide")
+            }, 10)
+        },
+        failCallback: function(e, t) {
+            setTimeout(function() {
+                "Y" == $("#LOADYN").val() && $.isLoading("hide")
+            }, 10), msg(langObj.JS0000004, null, "Y")
+        }
+    })
+});
+
+$(window).on("resize", function(){
+   var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() + 200);
+    grid1.setHeight(height);
+});
+
+const today = moment();
+const lastDay = today.endOf("month").format("YYYY-MM-DD");
+
+$(`#${itmobj1["fromdt"]}`).val(moment().format("YYYY-MM-01"));
+$(`#${itmobj1["todt"]}`).val(lastDay);
+
+$("#search_btn").trigger("click");
+
+
+$(".editer-content2 #grid1 .tui-grid-lside-area .tui-grid-summary-area tr:first td:last").html(`<span style="font-weight:bold">합계</span>`);

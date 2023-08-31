@@ -1,0 +1,113 @@
+select {project_ser} as project_ser
+     , {fromdt} as fromdt
+     , {todt} as todt
+     , {delivery_cd_ser} as delivery_cd_ser
+     , {delivery_type_ser} as delivery_type_ser
+     , {sale_type_ser} as sale_type_ser
+     , {sale_proc_type_ser} as sale_proc_type_ser
+     , {manager_ser} as manager_ser
+     , {dept_ser} as dept_ser
+     , {cust_ser} cust_ser
+     , a.comp_cd
+     , a.factory_cd
+     , a.sale_cd
+     , a.delivery_cd
+     , a.order_cd
+     , a.delivery_type
+     , dt.code_value as delivery_type_nm
+     , a.sale_type
+     , s.code_value as sale_type_nm
+     , a.sale_proc_type
+     , sp.code_value as sale_proc_type_nm
+     , od.order_date
+     , a.delivery_date
+     , a.sale_date
+     , a.delivery_address
+     , a.wh_cd
+     , wh.wh_nm
+     , a.cust_cd
+     , a.cust_nm
+     , a.cust_manager
+     , a.cust_phone_no
+     , a.cust_email
+     , a.dept_cd
+     , a.manager_id
+     , m.USERNAME as manager_nm
+     , d.DEPTNM as manager_dept
+     , a.have_tax
+     , e.code_value as have_tax_nm
+     , a.tot_supply_amt
+     , a.tot_vat_amt
+     , a.tot_sale_amt
+     , a.memo
+     , a.use_yn
+     , a.createdate
+     , a.createuser
+     , a.updatedate
+     , a.updateuser
+     , a.order_no
+     , a.project_cd
+     , a.equip_yn
+     , a.cust_delivery_nm
+     
+     
+   
+   , b.delivery_seq
+  
+   , b.sale_seq
+   , b.item_cd
+   , i.item_type_nm
+   , i.item_no
+   , i.item_nm
+   , i.spec
+   , i.unit
+   , b.p_item_cd
+   , b.sale_qty
+   , b.sale_price
+   , b.supply_amt
+   , b.vat_amt
+   , b.sale_amt
+   , b.progress_qty
+   , b.progress_status
+   , b.IN_DT
+   , b.IN_SQ
+   , case when b.progress_status = 'completed' then concat('<span class="form-circle-sm" style="background-color:#0063B2;"><span style="color:white;">', ps.code_value, '</span</span>')
+         when b.progress_status = 'interface' then concat('<span class="form-circle-sm" style="background-color:#fca326;"><span style="color:white;">', ps.code_value, '</span</span>') 
+         else concat('<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">', '작성', '</span</span>') end as progress_status_nm
+   , case when b.progress_status = 'completed' then  ps.code_value
+         when b.progress_status = 'interface' then ps.code_value
+         else '작성' end as progress_status_name
+   , dd.delivery_qty
+   , b.memo as memo_detail
+ from tb_sl_sale a
+ left join tb_sl_order od on od.order_cd = a.order_cd
+ left join tb_sl_delivery de on de.delivery_cd = a.delivery_cd
+ left join tb_ma_wh wh on wh.wh_cd = a.wh_cd
+ left join vw_ma_code_delivery_type dt on dt.code = a.delivery_type
+ left join vw_ma_code_delivery_sale_type s on s.code = a.sale_type
+ left join vw_ma_code_sale_process_type sp on sp.code = a.sale_proc_type
+ left join vw_cm_usermaster m on m.UID = a.manager_id
+ left join tb_cm_dept d on d.DEPTCD = a.dept_cd
+ 
+ left join tb_sl_sale_detail b on b.comp_cd = a.comp_cd and b.factory_cd = a.factory_cd and b.sale_cd = a.sale_cd
+  left join vw_ma_item i on i.item_cd = b.item_cd
+  left join tb_sl_delivery_detail dd on dd.delivery_cd = b.delivery_cd and dd.delivery_seq = b.delivery_seq
+  left join vw_ma_code_sl_progress_status ps on ps.code = b.progress_status
+  left join vw_ma_code_deal_type e on a.have_tax = e.code
+ where a.comp_cd = {comp_cd}
+   and a.factory_cd = {factory_cd}
+   and isnull(a.use_yn, 'Y') = 'Y'
+   and isnull(b.use_yn, 'Y') = 'Y'
+   and (isnull({cust_ser},'') = '' or a.cust_nm like concat('%', {cust_ser}, '%') or a.cust_manager like concat('%', {cust_ser}, '%') or a.cust_phone_no like concat('%', {cust_ser}, '%') or a.cust_email like concat('%', {cust_ser}, '%'))
+   and (isnull({project_ser},'') = '' or a.project_cd like concat('%', {project_ser}, '%'))
+   and (isnull({fromdt},'') = '' or a.delivery_date >= {fromdt})
+   and (isnull({todt},'') = '' or a.delivery_date <= {todt})
+   and (isnull({delivery_cd_ser},'') = '' or a.delivery_cd = {delivery_cd_ser})
+   and (isnull({delivery_type_ser},'') = '' or a.delivery_type = {delivery_type_ser})
+   and (isnull({sale_type_ser},'') = '' or a.sale_type = {sale_type_ser})
+   and (isnull({sale_proc_type_ser},'') = '' or a.sale_proc_type = {sale_proc_type_ser})
+   and (isnull({manager_ser},'') = '' or a.manager_id = {manager_ser})
+   and (isnull({dept_ser},'') = '' or a.dept_cd = {dept_ser})
+   
+   
+ order by a.createdate desc

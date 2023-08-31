@@ -1,0 +1,20 @@
+var gd11 = grid1_1.getRows();
+var save_flag = true;
+if (gd11.length === 0) save_flag = false;
+
+
+
+if(!save_flag){
+    msg("품목코드를 선택하십시오!", null, "N");
+    JSRETURN = false;
+}
+
+const out_stk_type = $("#" + itmobj1["out_stk_type"]).val();
+const project_cd = $("#" + itmobj1["project_cd"]).val();
+
+if (out_stk_type === "input") {
+    if (project_cd === "") {
+        msg("프로젝트코드가 필수 입력입니다!", null, "N");
+        JSRETURN = false;
+    }
+}

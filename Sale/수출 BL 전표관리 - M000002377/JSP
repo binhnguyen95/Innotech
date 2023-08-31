@@ -1,0 +1,180 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {}
+
+            if ( type.equals("delete") ) {}
+            
+            if ( type.equals("cust_btn1") ) {}
+            
+            if ( type.equals("handle_confirm") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    //get department code by UID
+                    String deptCd = "";
+                    deptCd = selectQuery(conn, "select DEPT1 from tb_cm_usermaster where UID = '" + UID + "'");
+                    
+                    //type 
+                    String pType = "A2";
+                    
+                    //get bill date
+                    java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ("yyyy-MM-dd");
+                    java.util.Date time = new java.util.Date();
+                    String billDate = dateFormat.format(time);
+                    
+                    String dateInput = (String)request.getParameter("dateInput");
+                
+                    // get varConv
+                    String varConv = "";
+                    List<Map> list = gson.fromJson(header, List.class);
+                    if (list.size() > 0) {
+                        for(int i = 0 ; i < list.size() ; i ++){
+                            
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_bl_export_detail", list.get(i));
+                            String cntBtn3 = getSOrder(conn, " select count(*) cnt from tb_sl_bl_export_detail where bl_export_cd = '" + list.get(i).get("bl_export_cd").toString() + "' and bl_export_seq = " + list.get(i).get("bl_export_seq").toString() + " and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'");
+                            
+                            if(cntBtn3.equals("0")){
+                                continue;
+                            }
+                            
+                            //validate process status
+                            String process_status = selectQuery(conn, "select progress_status from tb_sl_bl_export_detail where bl_export_cd = '" + list.get(i).get("bl_export_cd").toString() + "' and bl_export_seq = " + list.get(i).get("bl_export_seq").toString() + " and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'");
+                            if (!process_status.equals("created")) {
+                                throw new Exception("작성 상태만 전표생성 가능합니다!");
+                            }
+                            varConv += list.get(i).get("bl_export_cd").toString() + "|" + list.get(i).get("bl_export_seq").toString() + ",";
+                        }
+                    }
+                    
+                    String[] returnValueHandleCallTheZone = new String[2];
+                    returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, dateInput, deptCd, UID, varConv);
+                    if (returnValueHandleCallTheZone[0] == null) {
+                        throw new Exception("500 Internal Server Error");
+                    }
+                    if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
+                        throw new Exception(returnValueHandleCallTheZone[1]);
+                    }
+                }
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+            if ( type.equals("cust_btn3") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    //get department code by UID
+                    String deptCd = "";
+                    deptCd = selectQuery(conn, "select DEPT1 from tb_cm_usermaster where UID = '" + UID + "'");
+                    
+                    //type 
+                    String pType = "D2";
+                    
+                    //get bill date
+                    java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ("yyyy-MM-dd");
+                    java.util.Date time = new java.util.Date();
+                    String billDate = dateFormat.format(time);
+                
+                    // get varConv
+                    String varConv = "";
+                    List<Map> list = gson.fromJson(header, List.class);
+                    if (list.size() > 0) {
+                        for(int i = 0 ; i < list.size() ; i ++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_bl_export_detail", list.get(i));
+                            String cntBtn4 = getSOrder(conn, " select count(*) cnt from tb_sl_bl_export_detail where bl_export_cd = '" + list.get(i).get("bl_export_cd").toString() + "' and bl_export_seq = " + list.get(i).get("bl_export_seq").toString() + " and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'");
+                            
+                            if(cntBtn4.equals("0")){
+                                continue;
+                            }
+                            
+                            //validate process status
+                            String process_status = selectQuery(conn, "select progress_status from tb_sl_bl_export_detail where bl_export_cd = '" + list.get(i).get("bl_export_cd").toString() + "' and bl_export_seq = " + list.get(i).get("bl_export_seq").toString() + " and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'");
+                            if (!process_status.equals("interface")) {
+                                throw new Exception("인터페이스 상태만 전표취소 가능합니다!");
+                            }
+                            
+                            varConv += list.get(i).get("bl_export_cd").toString() + "|" + list.get(i).get("bl_export_seq").toString() + ",";
+                        }
+                    }
+                    
+                    String[] returnValueHandleCallTheZone = new String[2];
+                    returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, billDate, deptCd, UID, varConv);
+                    if (returnValueHandleCallTheZone[0] == null) {
+                        throw new Exception("500 Internal Server Error");
+                    }
+                    if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
+                        throw new Exception(returnValueHandleCallTheZone[1]);
+                    }
+                }
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn4") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

@@ -1,0 +1,88 @@
+var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() + 200);
+    grid1.setHeight(height);
+    
+        
+//call api get data
+callItemInBom();
+function callItemInBom() {
+   var dataPost = {};
+    dataPost.type = "cust_btn3";
+    dataPost.menucode = "M000002355";
+    dataPost.from_date = nvl($(`#${itmobj1["StkYm_from_ser"]}`).val(),"").replace(/-/g, "");
+    dataPost.to_date = nvl($(`#${itmobj1["StkYm_to_ser"]}`).val(),"").replace(/-/g, "");
+    dataPost.item_no = nvl($(`#${itmobj1["item_no_ser"]}`).val(),"");
+    dataPost.item_nm = nvl($(`#${itmobj1["item_nm_ser"]}`).val(),"");
+    dataPost.item_type = nvl($(`#${itmobj1["item_type_ser"]}`).val(),"");
+    $.ajax({
+      type: "POST",
+      url: "/ajax.do",
+      data: dataPost,
+      success: function (response, status, request) {
+        if (status === "success") {
+          const data = JSON.parse(response.trim());
+          const convertData = data.map(item => {
+              let obj = {};
+              obj[itmobj1["StkYm_from_ser"]] = dataPost.from_date;
+              obj[itmobj1["StkYm_to_ser"]] = dataPost.to_date;
+              obj[itmobj1["item_no_ser"]] = dataPost.item_no;
+              obj[itmobj1["item_nm_ser"]] = dataPost.item_nm;
+              obj[itmobj1["item_type_ser"]] = dataPost.item_type;
+              
+              //obj[itmobj1["factory_cd"]] = item.factory_cd;
+              obj[itmobj1["item_cd"]] = item.item_cd;
+              obj[itmobj1["item_no"]] = item.item_no;
+              obj[itmobj1["item_nm"]] = item.item_nm;
+              obj[itmobj1["spec"]] = item.spec;
+              obj[itmobj1["unit"]] = item.unit;
+             // obj[itmobj1["stkPrice"]] = item.stkPrice;
+              obj[itmobj1["PrevQty"]] = item.PrevQty;
+              //obj[itmobj1["PrevAmt"]] = item.PrevAmt;
+              obj[itmobj1["MakeQty"]] = item.MakeQty;
+              //obj[itmobj1["MakeAmt"]] = item.MakeAmt;
+              obj[itmobj1["BuyQty"]] = item.BuyQty;
+              //obj[itmobj1["BuyAmt"]] = item.BuyAmt;
+              obj[itmobj1["MvInQty"]] = item.MvInQty;
+              //obj[itmobj1["MvInAmt"]] = item.MvInAmt;
+              obj[itmobj1["EtcInQty"]] = item.EtcInQty;
+             // obj[itmobj1["EtcInAmt"]] = item.EtcInAmt;
+              obj[itmobj1["TmInQty"]] = item.TmInQty;
+              //obj[itmobj1["TmInAmt"]] = item.TmInAmt;
+              obj[itmobj1["InSum"]] = item.InSum;
+             // obj[itmobj1["InSumAmt"]] = item.InSumAmt;
+              obj[itmobj1["InvoiceQty"]] = item.InvoiceQty;
+              //obj[itmobj1["InvoiceCost"]] = item.InvoiceCost;
+              obj[itmobj1["MatQty"]] = item.MatQty;
+              //obj[itmobj1["MatAmt"]] = item.MatAmt;
+              obj[itmobj1["MvOutQty"]] = item.MvOutQty;
+              //obj[itmobj1["MvOutAmt"]] = item.MvOutAmt;
+              obj[itmobj1["EtcOutQty"]] = item.EtcOutQty;
+             // obj[itmobj1["EtcOutAmt"]] = item.EtcOutAmt;
+              obj[itmobj1["TmOutQty"]] = item.TmOutQty;
+              //obj[itmobj1["TmOutAmt"]] = item.TmOutAmt;
+              obj[itmobj1["OutSum"]] = item.OutSum;
+              //obj[itmobj1["OutSumAmt"]] = item.OutSumAmt;
+              obj[itmobj1["StockQty"]] = item.StockQty;
+              //obj[itmobj1["StockAmt"]] = item.StockAmt;
+              obj[itmobj1["item_type"]] = item.item_type;
+              obj[itmobj1["item_type_name"]] = item.item_type_name;
+              obj[itmobj1["diff"]] = item.diff;
+              
+              return obj;
+          })
+          grid1.setData(convertData);
+          
+          //color for Total
+            const total = grid1.getColumnValues(itmobj1["item_type_name"]);
+            //console.log("itmobj1",itmobj1);
+                for (let i = 0; i < total.length; i++) {
+                    if (total[i] == "Total") {
+                        grid1.addRowClassName(i, "total");
+                    }
+                }
+        }
+      },
+      error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+    });
+}
+
+    

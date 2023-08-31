@@ -1,0 +1,12 @@
+var gd1 = grid1.getRows();
+if ( gd1.length > 0 ) {
+    grid1.check(0);
+    for (let i = 0; i <= gd1.length; i++) {
+        if (gd1[i][itmobj1["process_status"]] && gd1[i][itmobj1["process_status"]] == "processing") {
+            $("#del_btn").hide();
+        } else if (gd1[i][itmobj1["process_status"]] && gd1[i][itmobj1["process_status"]] == "done") {
+            $("#del_btn").hide();
+            $("#save_btn").hide();
+        }
+    }
+}

@@ -1,0 +1,299 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+                Gson gson = new Gson();
+                String order_cd = "";
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                
+                java.text.SimpleDateFormat YYYYMM = new SimpleDateFormat ( "yyyyMM");
+                
+                java.util.Date time = new java.util.Date();
+                
+                String S_YYYYMM = YYYYMM.format(time);
+                
+                String project_cd = "";
+                
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    boolean isInsert = true;
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i>0) break;
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_order", list.get(i));
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_sl_order where order_cd = " + row.get("order_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                        
+                        isInsert = cnt.equals("0");
+                        if (isInsert) {
+                            row.put("order_cd", "'" + generateCode(conn, "CC000021") + "'");
+                            //check dupplicate project code
+                            String cntProjectCd = getSOrder(conn, " select count(*) cntProjectCd from tb_sl_order where project_cd = " + row.get("project_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                            if (!cntProjectCd.equals("0")) {
+                                throw new Exception("프로젝코드가 중복되었습니다!");
+                            }
+                            row.put("item_cd", row.get("item_no"));
+                        } else {
+                            //check dupplicate project code
+                            String cntProjectCd = getSOrder(conn, " select count(*) cntProjectCd from tb_sl_order where project_cd = " + row.get("project_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd <> " + row.get("order_cd"));
+                            if (!cntProjectCd.equals("0")) {
+                                throw new Exception("프로젝코드가 중복되었습니다!");
+                            }
+                        }
+                        
+                        /*String project_no = list.get(i).get("project_no").toString();
+                            
+                        String cnt = getSOrder(conn, " select isnull(MAX(CAST(SUBSTRING(project_cd,7,3) AS int)),0) as cnt from tb_sl_order where project_cd like '" + S_YYYYMM + "%' ");
+                        
+                        if (cnt.equals("0")){
+                            project_cd = "'" + S_YYYYMM + "001" + project_no + "'";
+                        }else{
+                            project_cd = "'" + S_YYYYMM + String.format("%03d", (Integer.parseInt(cnt)+1)) + project_no + "'";
+                        }
+                        row.put("project_cd", project_cd);*/
+                        
+                        project_cd = row.get("project_cd");
+
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                sqlValues += value;
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("order_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        order_cd = row.get("order_cd");
+                        comp_cd = row.get("comp_cd");
+                        factory_cd = row.get("factory_cd");
+                        
+                        if (isInsert){
+                            sql =  " insert into tb_sl_order (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_sl_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }else{
+                            sql = " update tb_sl_order set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + row.get("order_cd") + " ";
+                            logger.info("update tb_sl_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                    }
+                }
+                String order_seqList[] = new String[0];
+                if (!order_cd.equals("") && detail != null) {
+                    List<Map> list = gson.fromJson(detail, List.class);
+                    order_seqList = new String[list.size()];
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_order_detail", list.get(i));
+                        
+                        if(row.get("order_seq").equals("NULL")){
+                            row.put("order_cd", order_cd);
+                            row.put("project_cd", project_cd);
+                            sql = "  select isnull(max(order_seq), 0) + 1 as order_seq from tb_sl_order_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + order_cd + "  ";
+                            row.put("order_seq", getSOrder(conn, sql));
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("progress_status")) {
+                                        sqlValues += "'created'";
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                }
+                            }
+                            
+                            sql =  " insert into tb_sl_order_detail (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_sl_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        } else {
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {
+                                    // 기본키 제외 duplicate sql 만들기
+                                    String value = row.get(key);
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("order_cd") && !key.equals("order_seq") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            sql = " update tb_sl_order_detail set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq");
+                            logger.info("update tb_sl_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        order_seqList[i] = row.get("order_seq");
+                    }
+                }
+                
+                //delete order detail
+                sql = " delete from tb_sl_order_detail where comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and order_cd = " + order_cd;	
+                if (order_seqList.length > 0) {
+                    sql += " and order_seq not in ( ";
+                    for(int iDetailDelete = 0; iDetailDelete < order_seqList.length; iDetailDelete++)
+                    {
+                        if (iDetailDelete == order_seqList.length - 1) {
+                            sql += "" + order_seqList[iDetailDelete] + ")";
+                        } else {
+                            sql += "" + order_seqList[iDetailDelete] + ", ";
+                        }
+                    }
+                }
+                
+                logger.info("delete into tb_sl_order_detail");
+                logger.info(sql);
+                pstmt = conn.prepareStatement(sql);
+                pstmt.executeUpdate();
+                
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i>0) break;
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_order", list.get(i));
+                        
+                        if (!row.get("order_cd").equals("NULL")){
+                            //delete order
+                            sql =  " update tb_sl_order set use_yn = 'N' where order_cd = " + row.get("order_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            
+                            logger.info("update into tb_sl_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            //delete order detail
+                            sql =  " delete from tb_sl_order_detail where order_cd = " + row.get("order_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            logger.info("delete into tb_sl_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                    }
+                }
+                PassText = "Deleted.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+            
+            //api get estimate
+            if ( type.equals("cust_btn9") ) {
+                String estimate_cd_ser = (String)request.getParameter("estimate_cd");
+                sql = " select e.estimate_cd, e.estimate_type, e.sale_type, e.cust_cd, e.cust_nm, e.cust_manager, e.cust_phone_no, e.cust_email, e.dept_cd, e.manager_id, e.total_estimate_amt, ";
+                sql += " ed.item_cd, ed.item_model, ed.item_nm, ed.spec, ed.unit, ed.p_item_cd, ed.qty, (isnull(ed.part_est, 0) + isnull(ed.labour_est, 0) + isnull(ed.tax_amt, 0) + isnull(ed.profit_amt, 0)) as price, ed.estimate_amt ";
+                sql += " from tb_sl_estimate e left join tb_sl_estimate_detail ed on ed.estimate_cd = e.estimate_cd and ed.comp_cd = e.comp_cd and ed.factory_cd = e.factory_cd ";
+                sql += " where e.comp_cd = 'in' and e.factory_cd = 'in0001' and e.estimate_cd = '" + estimate_cd_ser + "'";
+                String json = new Gson().toJson(selectAllQuery(conn, sql));
+                out.write(json);
+            }
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

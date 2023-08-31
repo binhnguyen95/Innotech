@@ -1,0 +1,52 @@
+select 
+    {project_ser} as project_ser,
+    {fromdt} as fromdt,
+    {todt} as todt,
+    {item_ser} as item_ser,
+    a.comp_cd,
+    a.factory_cd,
+    a.work_order_cd,
+    a.plan_cd,
+    a.project_cd,
+    a.delivery_address,
+    a.item_cd,
+    it.item_nm,
+    it.item_no,
+    it.item_type_nm,
+    i.delivery_date,
+    it.unit,
+    it.spec,
+    a.sort,
+    a.completed_date,
+    a.work_order_date,
+    a.process_qty,
+    a.process_status,
+    a.cust_cd,
+    c.cust_nm,
+    c.manager,
+    a.memo,
+    a.use_yn,
+    a.createuser,
+    a.createdate,
+    a.updateuser,
+    a.updatedate,
+    case when a.process_status = 'done' then concat('<span class="form-circle-sm" style="background-color:#0063B2;"><span style="color:white;">', '완료', '</span</span>')
+         when a.process_status = 'processing' then concat('<span class="form-circle-sm" style="background-color:#fca326;"><span style="color:white;">', '진행중', '</span</span>') 
+         else concat('<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">', '작성', '</span</span>') end as process_status_nm,
+    case when a.process_status = 'done' then '완료'
+         when a.process_status = 'processing' then '진행중' 
+         else '작성' end as process_status_name,     
+    p.plan_file
+from tb_prod_work_order a
+    left join vw_ma_item it on it.item_cd = a.item_cd and it.comp_cd = a.comp_cd and it.factory_cd = a.factory_cd
+    left join tb_ma_client c on c.cust_item_cd = a.cust_cd and c.comp_cd = a.comp_cd and c.factory_cd = a.factory_cd
+    left join tb_prod_plan p on p.plan_cd = a.plan_cd and p.comp_cd = a.comp_cd and p.factory_cd = a.factory_cd
+    left join tb_sl_delivery i on i.comp_cd = p.comp_cd and i.factory_cd = p.factory_cd and i.project_cd = p.project_cd and isnull(i.use_yn,'Y') = 'Y'
+where (isnull({item_ser}, '') = '' or a.item_cd like concat('%', {item_ser}, '%') or it.item_nm like concat('%', {item_ser}, '%'))
+and (isnull({project_ser}, '') = '' or a.project_cd like concat('%', {project_ser}, '%'))
+and (isnull({fromdt},'') = '' or a.work_order_date >= {fromdt})
+and (isnull({todt},'') = '' or a.work_order_date <= {todt})
+and isnull(a.use_yn,'Y') = 'Y'
+and a.process_status = 'done'
+order by a.project_cd desc, a.sort
+

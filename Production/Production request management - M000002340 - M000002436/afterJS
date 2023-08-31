@@ -1,0 +1,20 @@
+var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() + 200);
+    grid1.setHeight(height);
+    
+// show files in grid
+const file_img = "/resources/images/file_icon_detail.png";
+$(`td[data-column-name=${itmobj1["plan_file"]}]`).each(function(i, obj) {
+    let html = "";
+    let plan_file = $(obj).find(".tui-grid-cell-content").text(); 
+    if (plan_file) {
+        plan_file = JSON.parse(decodeURIComponent(plan_file));
+        for (let i = 0; i < plan_file.length; i++) {
+            html += `<a target="_blank" href="/file/${plan_file[i].newfilename}">
+                <img src="${file_img}" />
+            </a>`;
+        }
+    }
+    if (nvl(html,"") !== "") {
+        $(obj).find(".tui-grid-cell-content").html(html);
+    }
+});

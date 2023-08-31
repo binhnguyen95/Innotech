@@ -1,0 +1,14 @@
+select a.*
+    , {item_cd_ser} as item_cd_ser
+    , {item_nm_spec_ser} as item_nm_spec_ser
+    , {item_type_ser} as item_type_ser
+    , {wh_cd_ser} as wh_cd_ser
+    , {use_ser} as use_ser
+ from tb_ma_item a
+ where (isnull({use_ser},'') = '' or use_yn = {use_ser})
+   and ({item_cd_ser} = '' or {item_cd_ser} is null or (a.item_cd like concat('%', {item_cd_ser}, '%')))
+   and ({item_nm_spec_ser} = '' or {item_nm_spec_ser} is null or a.item_nm like concat('%', {item_nm_spec_ser}, '%') or a.spec like concat('%', {item_nm_spec_ser}, '%'))
+   and ({item_type_ser} = '' or {item_type_ser} is null or a.item_type like concat('%', {item_type_ser}, '%'))
+   and ({wh_cd_ser} = '' or {wh_cd_ser} is null or a.wh_cd like concat('%', {wh_cd_ser}, '%'))
+ order by a.createdate desc
+

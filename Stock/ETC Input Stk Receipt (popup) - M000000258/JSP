@@ -1,0 +1,440 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.time.LocalDate"%>
+<%@page import="java.time.format.DateTimeFormatter"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    
+    LocalDate today = LocalDate.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMM");
+    String formattedDateNow = today.format(formatter);
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+                Gson gson = new Gson();
+                String in_stk_cd = "";
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                String wh_cd = "";
+                boolean isInsert = true;
+                String dateInput = "";
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i>0) break;
+                        dateInput = list.get(i).get("in_stk_ymd").toString();
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_st_in_stock_receipt", list.get(i));
+                        wh_cd = list.get(i).get("wh_cd").toString();
+                        isInsert = row.get("in_stk_cd").equals("NULL");
+                        if(row.get("in_stk_cd").equals("NULL")){
+                            row.put("in_stk_cd", "'" + generateCode(conn, "CC000062") + "'");
+                        }
+
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                sqlValues += value;
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("in_req_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        in_stk_cd = row.get("in_stk_cd");
+                        comp_cd = row.get("comp_cd");
+                        factory_cd = row.get("factory_cd");
+                        
+                        
+                        if (isInsert){
+                            sql =  " insert into tb_st_in_stock_receipt (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            
+                            logger.info("insert into tb_st_in_stock_receipt");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }else{
+                            sql = " update tb_st_in_stock_receipt set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_stk_cd = " + row.get("in_stk_cd") + " ";
+                            logger.info("update tb_st_in_stock_receipt");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                    }
+                }
+                
+                //day la detail
+                String reqList[] = new String[0];
+                if (!in_stk_cd.equals("") && detail != null) {
+                    List<Map> list = gson.fromJson(detail, List.class);
+                    reqList = new String[list.size()];
+                    boolean is_connect_request = false;
+                    int prev_in_qty = 0;
+                    double request_progress_qty = 0.0;
+                    int request_qty = 0;
+                    String current_qty = "";
+                    boolean comparison_qty = true;
+                    Double diff_qty = 0.0;
+                    String lastPrice = "";
+                    String request_progress_status = "";
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_st_in_stock_receipt_item", list.get(i));
+                        
+                        /* in_qty code here for transation DB*/
+                         sql =  "select in_qty from tb_st_in_stock_receipt_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_stk_cd = " + in_stk_cd + " and in_stk_seq = " + row.get("in_stk_seq") + " ";
+                         current_qty = selectQuery(conn, sql);
+                        
+                        if(row.get("in_stk_seq").equals("NULL")){
+                            row.put("in_stk_cd", in_stk_cd);
+                            sql = "  select isnull(max(in_stk_seq), 0) + 1 as in_stk_seq from tb_st_in_stock_receipt_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_stk_cd = " + in_stk_cd + "  ";
+                            row.put("in_stk_seq", getSOrder(conn, sql));
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("in_out_status")) {
+                                        sqlValues += "'new'";
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                }
+                            }
+                            
+                            sql =  " insert into tb_st_in_stock_receipt_item (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_st_in_stock_receipt_item");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        } else {
+                        
+                            //check connect request
+                            is_connect_request = false;
+                            prev_in_qty = 0;
+                            if (!row.get("in_req_cd").equals("NULL") && !row.get("in_req_seq").equals("NULL")) {
+                                sql = " select in_req_cd, in_req_seq from tb_st_in_stock_req_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_req_cd = " + row.get("in_req_cd") + " and in_req_seq = " + row.get("in_req_seq") + " ";
+                                stmt = conn.createStatement();
+                                rs = stmt.executeQuery(sql);
+                                
+                                while (rs.next()) {
+                                    is_connect_request = true;
+                                }
+                                
+                                //get in qty before update
+                                if (is_connect_request) {
+                                    sql = " select isnull(in_qty, 0) as in_qty from tb_st_in_stock_receipt_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_stk_cd = " + row.get("in_stk_cd") + " and in_stk_seq = " + row.get("in_stk_seq") + " ";
+                                    prev_in_qty = Integer.parseInt(selectQuery(conn, sql));
+                                }
+                            }
+                        
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {
+                                    // 기본키 제외 duplicate sql 만들기
+                                    String value = row.get(key);
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("in_stk_cd") && !key.equals("in_stk_seq") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            sql = " update tb_st_in_stock_receipt_item set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_stk_cd = " + row.get("in_stk_cd") + " and in_stk_seq = " + row.get("in_stk_seq");
+                            logger.info("update tb_st_in_stock_receipt_item");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        
+                        //get item price last version
+                            sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                            lastPrice = selectQuery(conn, sql);
+                            lastPrice = lastPrice == null ? "0" : lastPrice;
+                            
+                        //handle enter the warehouse
+                        if (isInsert) {
+                            String[] returnValueHandleWH = new String[2];
+                            
+                            returnValueHandleWH = call_ACT_STMUseQty(conn, "I1", "ETCIN", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), list.get(i).get("item_cd").toString(),
+                            wh_cd, Double.parseDouble(row.get("in_qty")), formatDateInput(dateInput), in_stk_cd.replace("'", ""), 
+                            Integer.parseInt(row.get("in_stk_seq")), "0");
+                            
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                       
+                            
+                        }else {
+                            /* in case update. if qty in < qty current then call like delete whith qty diff, if qty in > qty current then call like insert whith qty diff */
+                            String[] returnValueHandleWH = new String[2];
+                             if(Double.parseDouble(current_qty) != Double.parseDouble(row.get("in_qty"))){
+                                
+                                comparison_qty =   Double.parseDouble(current_qty) < Double.parseDouble(row.get("in_qty"));
+                                
+                                if(comparison_qty){
+                                    /*insert*/
+                                    diff_qty = Double.parseDouble(row.get("in_qty")) - Double.parseDouble(current_qty);
+                                
+                                    returnValueHandleWH = call_ACT_STMUseQty(conn, "I1", "ETCIN", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), list.get(i).get("item_cd").toString(),
+                                    wh_cd, diff_qty, formatDateInput(dateInput), in_stk_cd.replace("'", ""), 
+                                    (int) Double.parseDouble(row.get("in_stk_seq")), "0");
+                                    if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                        throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                                    }
+                                    
+                                }else{
+                                    /* delete */
+                                    diff_qty = Double.parseDouble(current_qty) - Double.parseDouble(row.get("in_qty"));
+                                    
+                                    //handle stock
+                                    
+                                    returnValueHandleWH = call_ACT_STMUseQty(conn, "D1", "ETCIN", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), list.get(i).get("item_cd").toString(),
+                                    wh_cd, diff_qty, formatDateInput(dateInput), list.get(i).get("in_stk_cd").toString(), (int)Double.parseDouble(row.get("in_stk_seq")), "0");
+                                    if (!returnValueHandleWH[0].equals("OK")) {
+                                        throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                                    }
+                                    
+                                }
+                             }
+                            
+                        }
+                        
+                        reqList[i] = row.get("in_stk_seq");
+                        
+                        
+                        if (!row.get("in_req_cd").equals("NULL") && !row.get("in_req_seq").equals("NULL")) {
+                        
+                            //update progress quantity in request detail
+                            sql = " select isnull(prog_qty, 0) as progress_qty from tb_st_in_stock_req_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_req_cd = " + row.get("in_req_cd") + " and in_req_seq = " + row.get("in_req_seq") + " ";
+                            request_progress_qty = (Integer.parseInt(selectQuery(conn, sql)) - prev_in_qty) + Double.parseDouble(row.get("in_qty"));
+                            
+                            //get request quantity in request detail
+                            sql = " select isnull(req_qty, 0) as req_qty from tb_st_in_stock_req_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_req_cd = " + row.get("in_req_cd") + " and in_req_seq = " + row.get("in_req_seq") + " ";
+                            request_qty = Integer.parseInt(selectQuery(conn, sql));
+                            
+                            //update status in receipt detail
+                            request_progress_status = request_progress_qty >= request_qty ? "done" : "processing";
+                            sql = " update tb_st_in_stock_req_item set in_out_status = '" + request_progress_status + "', prog_qty = " + request_progress_qty + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_req_cd = " + row.get("in_req_cd") + " and in_req_seq = " + row.get("in_req_seq") + " ";
+                            logger.info("update tb_st_in_stock_req_item");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                    }
+                }
+                
+                //delete request detail
+                String sql1 = " select comp_cd, factory_cd, in_stk_cd, in_stk_seq, in_req_cd, in_req_seq, in_qty from tb_st_in_stock_receipt_item where in_req_cd is not null and in_req_seq is not null and comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and in_stk_cd = " + in_stk_cd;
+                List<Map<String, Object>> list1 = new ArrayList<>();
+                List<Map<String, Object>> list2 = new ArrayList<>();
+                
+                sql = " delete from tb_st_in_stock_receipt_item where comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and in_stk_cd = " + in_stk_cd;	
+                if (reqList.length > 0) {
+                    sql += " and in_stk_seq not in ( ";
+                    sql1 += " and in_stk_seq not in ( ";
+                    for(int iDetailDelete = 0; iDetailDelete < reqList.length; iDetailDelete++)
+                    {
+                        if (iDetailDelete == reqList.length - 1) {
+                            sql += "" + reqList[iDetailDelete] + ")";
+                            sql1 += "" + reqList[iDetailDelete] + ")";
+                        } else {
+                            sql += "" + reqList[iDetailDelete] + ", ";
+                            sql1 += "" + reqList[iDetailDelete] + ")";
+                        }
+                    }
+                }
+                
+                //update progress quantity after delete request detail
+                list1 = selectAllQuery(conn, sql1);
+                
+                for(int i1 = 0 ; i1 < list1.size() ; i1 ++) {
+                    sql1 = " select in_stk_cd, in_stk_seq from tb_st_in_stock_receipt_item where in_req_cd = '" + list1.get(i1).get("in_req_cd") + "' and in_req_seq = " + list1.get(i1).get("in_req_seq") + " and in_stk_cd != '" + list1.get(i1).get("in_stk_cd") + "' and in_stk_seq != " + list1.get(i1).get("in_stk_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                    list2 = selectAllQuery(conn, sql1);
+                                    
+                    sql1 = " update tb_st_in_stock_req_item set prog_qty = prog_qty - " + list1.get(i1).get("in_qty") + " , in_out_status = '" + (list2.size() > 0 ? "processing" : "new") + "' where in_req_cd = '" + list1.get(i1).get("in_req_cd") + "' and in_req_seq = " + list1.get(i1).get("in_req_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                    logger.info("update into tb_st_in_stock_req_item");
+                    logger.info(sql1);
+                    pstmt = conn.prepareStatement(sql1);
+                    pstmt.executeUpdate();
+                }
+                
+                logger.info("delete into tb_st_in_stock_receipt_item");
+                logger.info(sql);
+                pstmt = conn.prepareStatement(sql);
+                pstmt.executeUpdate();
+                
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                String wh_cd = "";
+                String use = "N";
+                String dateInput = "";
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i>0) break;
+                        dateInput = list.get(i).get("in_stk_ymd").toString();
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_st_in_stock_receipt", list.get(i));
+                        wh_cd = list.get(i).get("wh_cd").toString();
+                        if (!row.get("in_stk_cd").equals("NULL")){
+                        
+                            //delete in receipt
+                            sql =  " update tb_st_in_stock_receipt set use_yn = 'N' where in_stk_cd = " + row.get("in_stk_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            
+                            logger.info("update into tb_st_in_stock_receipt");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            
+                            //delete in receipt detail
+                            sql = " select comp_cd, factory_cd, in_stk_cd, in_stk_seq, in_req_cd, in_req_seq, in_qty from tb_st_in_stock_receipt_item where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and in_stk_cd = " + row.get("in_stk_cd");
+                            List<Map<String, Object>> list1 = new ArrayList<>();
+                            List<Map<String, Object>> list2 = new ArrayList<>();
+                            list1 = selectAllQuery(conn, sql);
+                            for(int i1 = 0 ; i1 < list1.size() ; i1 ++){
+                                sql =  " delete from tb_st_in_stock_receipt_item where in_stk_cd = '" + list1.get(i1).get("in_stk_cd") + "' and in_stk_seq = " + list1.get(i1).get("in_stk_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                logger.info("delete into tb_st_in_stock_receipt_item");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                                
+                                //update status, progress quantity in request detail
+                                if (list1.get(i1).get("in_req_cd") != null && list1.get(i1).get("in_req_seq") != null) {
+                                    sql = " select in_stk_cd, in_stk_seq from tb_st_in_stock_receipt_item where in_req_cd = '" + list1.get(i1).get("in_req_cd") + "' and in_req_seq = " + list1.get(i1).get("in_req_seq") + " and in_stk_cd != '" + list1.get(i1).get("in_stk_cd") + "' and in_stk_seq != " + list1.get(i1).get("in_stk_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                    list2 = selectAllQuery(conn, sql);
+                                    
+                                    
+                                    sql = " update tb_st_in_stock_req_item set prog_qty = prog_qty - " + list1.get(i1).get("in_qty") + " , in_out_status = '" + (list2.size() > 0 ? "processing" : "new") + "' where in_req_cd = '" + list1.get(i1).get("in_req_cd") + "' and in_req_seq = " + list1.get(i1).get("in_req_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                    logger.info("update into tb_st_in_stock_req_item");
+                                    logger.info(sql);
+                                    pstmt = conn.prepareStatement(sql);
+                                    pstmt.executeUpdate();
+                                    
+                                }
+                            }
+                        }
+                    }
+                }
+                if(detail != null){
+                    List<Map> list = gson.fromJson(detail, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_st_in_stock_receipt_item", list.get(i));
+                        
+                        //get item price last version
+                        sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                        String lastPrice = selectQuery(conn, sql);
+                        lastPrice = lastPrice == null ? "0" : lastPrice;
+
+
+                        //xu ly kho
+                        String returnValueHandleWH[] = new String[2];
+                       
+                        returnValueHandleWH = call_ACT_STMUseQty(conn, "D1", "ETCIN", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), list.get(i).get("item_cd").toString(), wh_cd, (int)Double.parseDouble(row.get("in_qty").toString()), formatDateInput(dateInput), list.get(i).get("in_stk_cd").toString(), (int)Double.parseDouble(row.get("in_stk_seq")), "0");
+                        if (!returnValueHandleWH[0].equals("OK")) {
+                            throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                        }
+                    }
+                }
+                PassText = "Deleted.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("cust_btn5") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" );
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

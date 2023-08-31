@@ -1,0 +1,159 @@
+$("#detail-addrow").show();
+$("#detail-delrow").show();
+$("#search_btn").hide();
+$("#reset_btn").hide();
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+
+
+const detail_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_item_cd_column.onBeforeChange = function (event) {
+    const in_stk_cd = $("#" + itmobj1["in_req_cd"]).val();
+    const prog_status = $("#" + itmobj1["prog_status"]).val();
+    if(in_stk_cd.length > 0 && nvl(prog_status, "") !== "new"){
+     event.stop();   
+    }
+};
+
+// const detail_in_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["in_qty"])];
+// detail_in_qty_column.onBeforeChange = function (event) {
+//     const in_stk_cd = $("#" + itmobj1["in_stk_cd"]).val();
+//     const prog_status = $("#" + itmobj1["prog_status"]).val();
+//     if(in_stk_cd.length > 0  && nvl(prog_status, "") !== "new"){
+//      event.stop();   
+//     }
+// };
+
+if (nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != "") {
+  $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+  $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+  $("#" + itmobj1["in_stk_cd"]).val(DUMMY3);
+  parent.$("#DUMMY1").val("");
+  parent.$("#DUMMY2").val("");
+  parent.$("#DUMMY3").val("");
+  $("#search_btn").trigger("click");
+} else {
+  //handle jump from request
+  let in_requestGrid1 = localStorage.getItem("in_requestGrid1");
+  let in_requestGrid11 = localStorage.getItem("in_requestGrid11");
+
+  if (in_requestGrid1 && in_requestGrid11) {
+    $(`select#${itmobj1["in_req_seq"]}`).parent().parent().show();
+    $(`select#${itmobj1["in_req_seq"]}`).attr("disabled", "disabled");
+    // $("#detail-delrow").hide();
+    $("#detail-addrow").hide();
+    in_requestGrid1 = JSON.parse(in_requestGrid1);
+    in_requestGrid11 = JSON.parse(in_requestGrid11);
+    renderRequestData(in_requestGrid1, in_requestGrid11);
+  }
+  localStorage.removeItem("in_requestGrid1");
+  localStorage.removeItem("in_requestGrid11");
+}
+
+//validate
+grid1_1.on("check", function(event) {
+    //save grid1_1 rows to localStorage (chi luu lan dau)
+    if (!localStorage.getItem("in_stock_grid11")) {
+        localStorage.setItem("in_stock_grid11", JSON.stringify(grid1_1.getRows()));
+    }
+})
+
+
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function () {
+  if ($(this).val() == "Y") {
+    $(this).val("N");
+    parent.$("#search_btn").trigger("click");
+    parent.grid1_1.clear();
+    parent.$("#NMODModal").dialog("destroy");
+  }
+});
+
+//set status name when add detail
+$("#detail-addrow").on("click", function() {
+    setTimeout(function() {
+        var gd11 = grid1_1.getRows();
+        for (let i = 0; i < gd11.length; i++ ) {
+            if (nvl(gd11[i][itmobj2["prog_status"]],"") === "") {
+                grid1_1.setValue(i, itmobj2["prog_status"], `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`);
+            }
+        }
+    },500)
+})
+//end
+
+function renderRequestData(in_requestGrid1, in_requestGrid11) {
+  grid1.clear();
+  grid1_1.clear();
+  if (in_requestGrid1.length > 0 && in_requestGrid11.length > 0) {
+    $("#" + itmobj1["comp_cd"]).val(in_requestGrid1[0].comp_cd);
+    $("#" + itmobj1["factory_cd"]).val(in_requestGrid1[0].factory_cd);
+    $("#" + itmobj1["in_req_cd"]).val(in_requestGrid1[0].in_req_cd);
+    $("#" + itmobj1["in_req_cd"]).prop("disabled", true);
+    $("#" + itmobj1["in_stk_type"]).val(in_requestGrid1[0].in_stk_type);
+    $("#" + itmobj1["in_stk_type"]).prop("disabled", true);
+    $("#" + itmobj1["wh_cd"]).val(in_requestGrid1[0].wh_cd);
+    $("#" + itmobj1["wh_cd"]).prop("disabled", true);
+    $("#" + itmobj1["wh_nm"]).val(in_requestGrid1[0].wh_nm);
+    $("#" + itmobj1["cust_cd"]).val(in_requestGrid1[0].cust_cd);
+    $("#" + itmobj1["cust_cd"]).prop("disabled", true);
+    $("#" + itmobj1["cust_nm"]).val(in_requestGrid1[0].cust_nm);
+    $("#" + itmobj1["in_req_ymd"]).val(in_requestGrid1[0].in_req_ymd);
+    $("#" + itmobj1["in_req_ymd"]).prop("disabled", true);
+    $("#" + itmobj1["memo"]).val(in_requestGrid1[0].memo);
+    
+    const in_requestGrid11_1 = in_requestGrid11.map(item => {
+        let obj = {};
+        obj[itmobj2["comp_cd"]] = item.comp_cd;
+        obj[itmobj2["factory_cd"]] = item.factory_cd;
+        obj[itmobj2["prog_status"]] = `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`;
+        obj[itmobj2["item_cd"]] = item.item_cd;
+         obj[itmobj2["in_req_cd"]] = item.in_req_cd;
+         obj[itmobj2["in_qty"]] = item.req_qty;
+         obj[itmobj2["in_req_seq"]] = item.in_req_seq;
+        obj[itmobj2["item_no"]] = item.item_no;
+        obj[itmobj2["item_nm"]] = item.item_nm;
+        obj[itmobj2["spec"]] = item.spec;
+        obj[itmobj2["unit"]] = item.unit;
+        obj[itmobj2["in_out_status"]] = item.in_out_status;
+        obj[itmobj2["item_type_nm"]] = item.item_type_nm;
+        // obj[itmobj2["request_qty"]] = item.qty;
+        // obj[itmobj2["surplus"]] = Number(nvl(item.available_stock,0)) - Number(nvl(item.qty,0));
+        return obj;
+    });
+    grid1_1.setData(in_requestGrid11_1);
+    
+    // for (let i = 0; i < in_requestGrid11.length; i++) {
+    //   if (nvl(in_requestGrid11[i].item_cd, "") !== "") {
+    //     $("#detail-addrow").trigger("click");
+    //     grid1_1.setValue(i, itmobj2["comp_cd"], in_requestGrid11[i].comp_cd);
+    //     grid1_1.setValue(i, itmobj2["factory_cd"], in_requestGrid11[i].factory_cd);
+    //     grid1_1.setValue(i, itmobj2["in_req_cd"], in_requestGrid11[i].in_req_cd);
+    //     grid1_1.setValue(i, itmobj2["in_req_seq"], in_requestGrid11[i].in_req_seq);
+    //     grid1_1.setValue(i, itmobj2["in_qty"], in_requestGrid11[i].req_qty);
+    //     grid1_1.setValue(i, itmobj2["item_cd"], in_requestGrid11[i].item_cd);
+    //     grid1_1.setValue(i, itmobj2["item_no"], in_requestGrid11[i].item_no);
+    //     grid1_1.setValue(i, itmobj2["item_nm"], in_requestGrid11[i].item_nm);
+    //     grid1_1.setValue(i, itmobj2["spec"], in_requestGrid11[i].spec);
+    //     grid1_1.setValue(i, itmobj2["unit"], in_requestGrid11[i].unit);
+    //     grid1_1.setValue(i, itmobj2["in_out_status"], "new");
+    //   }
+    // }
+  }
+  
+  detail_item_cd_column.onBeforeChange = function (event) {event.stop();}; 
+}
+
+function resetToOriginalValue(row_key, in_req_seq) {
+    let data = localStorage.getItem("in_stock_grid11");
+    if (data) {
+        data = JSON.parse(data);
+        //lay ra gia tri ban dau theo in_req_seq
+        const row = data.filter(item => item[itmobj2["in_req_seq"]] === in_req_seq);
+        if (row.length > 0) {
+            //dat lai gia tri
+            grid1_1.setValue(row_key, itmobj2["item_cd"], row[0][itmobj2["item_cd"]]);
+        }
+    }
+}

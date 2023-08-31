@@ -1,0 +1,224 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.time.LocalDate"%>
+<%@page import="java.time.format.DateTimeFormatter"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    //get now
+    LocalDate today = LocalDate.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMM");
+    String formattedDateNow = today.format(formatter);
+     String errorMessage = "";
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+            }
+
+            if ( type.equals("delete") ) {
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {
+                Gson gson = new Gson();
+                String dateInput = "";
+                if (header != null) {
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                    dateInput = list.get(i).get("in_stk_ymd").toString();
+                        sql = "select d.comp_cd, d.factory_cd, d.in_stk_cd, d.in_stk_seq, d.item_cd, d.in_qty, d.in_out_status, m.wh_cd from tb_st_in_stock_receipt_item d join tb_st_in_stock_receipt m on m.in_stk_cd = d.in_stk_cd where isnull(d.use_yn,'Y') = 'Y' and d.in_stk_cd = '" + list.get(i).get("in_stk_cd").toString() + "' and d.comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and d.factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        List<Map<String, Object>> outs = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < outs.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_st_in_stock_receipt_item", outs.get(j));
+                            
+                            //get item price last version
+                            sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                            String lastPrice = selectQuery(conn, sql);
+                            lastPrice = lastPrice == null ? "0" : lastPrice;
+
+                            //xu ly kho
+                            if (outs.get(j).get("in_out_status").equals("new")) {    
+                                String returnValueHandleWH[] = new String[2];
+                                returnValueHandleWH = call_ACT_STSStkUpt(conn, "I", outs.get(j).get("comp_cd").toString(), outs.get(j).get("factory_cd").toString(), outs.get(j).get("item_cd").toString(), formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.parseDouble(row.get("in_qty")), Double.parseDouble(lastPrice)*Double.parseDouble(row.get("in_qty").toString()), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "I", outs.get(j).get("comp_cd").toString(), outs.get(j).get("factory_cd").toString(), outs.get(j).get("item_cd").toString(), outs.get(j).get("wh_cd").toString(), formatDateInput(dateInput), "1", 0.00, 0.0, 0.00, Double.parseDouble(row.get("in_qty")), 0.00, 0.00, 0.00, 0.00, 0.00, 0.0, 0.00, 0.0);                           
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                returnValueHandleWH = call_ACT_STMUseQty(conn, "I2", "ETCIN", outs.get(j).get("comp_cd").toString(), outs.get(j).get("factory_cd").toString(), outs.get(j).get("item_cd").toString(), outs.get(j).get("wh_cd").toString(), Double.parseDouble(row.get("in_qty").toString()), formatDateInput(dateInput), outs.get(j).get("in_stk_cd").toString(), Integer.parseInt(row.get("in_stk_seq")), "0");
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        /*//update master
+                        sql = "update tb_st_in_stock_receipt set status = 'done' where in_stk_cd = '" + list.get(i).get("in_stk_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        logger.info("update tb_st_in_stock_receipt");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);*/
+                        
+                        //update detail
+                        sql = "update tb_st_in_stock_receipt_item set in_out_status = 'confirmed' where in_stk_cd = '" + list.get(i).get("in_stk_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        logger.info("update tb_st_in_stock_receipt");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                        
+                    }
+                     //handle error
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success.";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                    //end
+                }
+            }
+            if ( type.equals("cust_btn4") ) {
+                Gson gson = new Gson();
+                String dateInput = "";
+                if (header != null) {
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                    dateInput = list.get(i).get("in_stk_ymd").toString();
+                        sql = "select d.comp_cd, d.factory_cd, d.in_stk_cd, d.in_stk_seq, d.item_cd, d.in_qty, d.in_out_status, m.wh_cd from tb_st_in_stock_receipt_item d join tb_st_in_stock_receipt m on m.in_stk_cd = d.in_stk_cd where isnull(d.use_yn,'Y') = 'Y' and d.in_stk_cd = '" + list.get(i).get("in_stk_cd").toString() + "' and d.comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and d.factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        List<Map<String, Object>> outs = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < outs.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_st_in_stock_receipt_item", outs.get(j));
+                            
+                            //get item price last version
+                            sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                            String lastPrice = selectQuery(conn, sql);
+                            lastPrice = lastPrice == null ? "0" : lastPrice;
+                            
+                            //xu ly kho
+                            if (outs.get(j).get("in_out_status").equals("confirmed")) {
+                                String returnValueHandleWH[] = new String[2];
+                                returnValueHandleWH = call_ACT_STSStkUpt(conn, "D", outs.get(j).get("comp_cd").toString(), outs.get(j).get("factory_cd").toString(), outs.get(j).get("item_cd").toString(), formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.parseDouble(row.get("in_qty")), Double.parseDouble(lastPrice)*Double.parseDouble(row.get("in_qty").toString()), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "D", outs.get(j).get("comp_cd").toString(), outs.get(j).get("factory_cd").toString(), outs.get(j).get("item_cd").toString(), outs.get(j).get("wh_cd").toString(), formatDateInput(dateInput), "1", 0.00, 0.0, 0.00, Double.parseDouble(row.get("in_qty")), 0.00, 0.00, 0.00, 0.00, 0.00, 0.0, 0.00, 0.0);
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                returnValueHandleWH = call_ACT_STMUseQty(conn, "D3", "ETCIN", outs.get(j).get("comp_cd").toString(), outs.get(j).get("factory_cd").toString(), outs.get(j).get("item_cd").toString(), outs.get(j).get("wh_cd").toString(), Double.parseDouble(row.get("in_qty").toString()), formatDateInput(dateInput), outs.get(j).get("in_stk_cd").toString(), Integer.parseInt(row.get("in_stk_seq")), "0");
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                            }    
+                        }
+                        
+                        /* //update master
+                        sql = "update tb_st_in_stock_receipt set status = 'stop' where in_stk_cd = '" + list.get(i).get("in_stk_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        logger.info("update tb_st_in_stock_receipt");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);*/
+                        
+                        //update detail
+                        sql = "update tb_st_in_stock_receipt_item set in_out_status = 'new' where in_stk_cd = '" + list.get(i).get("in_stk_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        logger.info("update tb_st_in_stock_receipt_item");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                    }
+                        //handle error
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success.";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                    //end
+                }
+            }
+            if ( type.equals("cust_btn5") ) {}
+            if ( type.equals("excel") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage() + "\n" + sql );
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

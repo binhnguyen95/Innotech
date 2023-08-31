@@ -1,0 +1,594 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.time.LocalDate"%>
+<%@page import="java.time.format.DateTimeFormatter"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+
+
+<%
+
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    String FailText = null;
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    String status = null;
+    //get now
+    LocalDate today = LocalDate.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMM");
+    String formattedDateNow = today.format(formatter);
+    String errorMessage = "";
+    String dateInput = "";
+    
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {
+            
+                Gson gson = new Gson();
+                if (header != null) {
+                    List<Map> list = gson.fromJson(header, List.class);
+                    
+                    
+                    
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        dateInput = list.get(i).get("delivery_date").toString();
+                        sql = "select d.comp_cd, d.factory_cd, d.delivery_cd, d.delivery_seq, d.item_cd, d.delivery_qty, d.delivery_amt, d.progress_status, m.wh_cd from tb_sl_delivery_detail d join tb_sl_delivery m on m.delivery_cd = d.delivery_cd where isnull(d.use_yn,'Y') = 'Y' and d.delivery_cd = '" + list.get(i).get("delivery_cd").toString() + "' and d.comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and d.factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                       
+                        List<Map<String, Object>> deliveries = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < deliveries.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_delivery_detail", deliveries.get(j));
+                            
+                            
+                            
+                            //xu ly kho
+                        if (deliveries.get(j).get("progress_status").equals("created")) {
+                            String returnValueHandleWH[] = new String[2];
+                            
+                            returnValueHandleWH = call_ACT_STSStkUpt(conn, "I", deliveries.get(j).get("comp_cd").toString(), deliveries.get(j).get("factory_cd").toString(), deliveries.get(j).get("item_cd").toString(),
+                            formatDateInput(dateInput), "1", 0.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.0, Double.parseDouble(row.get("delivery_qty")), Double.parseDouble(row.get("delivery_amt").toString()), 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0, 0.0, 0.0, 0.0, 0.0,
+                            0.0);
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                break;
+                            }
+                            
+                            returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "I", deliveries.get(j).get("comp_cd").toString(), deliveries.get(j).get("factory_cd").toString(), deliveries.get(j).get("item_cd").toString(), 
+                            deliveries.get(j).get("wh_cd").toString(), formatDateInput(dateInput), "1", 0.00, 0.0,
+                            0.00, 0.00, 0.00, Double.parseDouble(row.get("delivery_qty")), 0.00, 
+                            0.00, 0.00, 0.00, 0.0, 0.0);
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                break;
+                            }
+                            
+                            returnValueHandleWH = call_ACT_STMUseQty(conn, "I2", "IVOUT", deliveries.get(j).get("comp_cd").toString(), deliveries.get(j).get("factory_cd").toString(), deliveries.get(j).get("item_cd").toString(), deliveries.get(j).get("wh_cd").toString(), -Double.parseDouble(row.get("delivery_qty").toString()), formatDateInput(dateInput), deliveries.get(j).get("delivery_cd").toString(), Integer.parseInt(row.get("delivery_seq")), "0");
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                break;
+                            }
+                        }
+                    }
+                        
+                        //update detail
+                        sql = "update tb_sl_delivery_detail set progress_status = 'confirmed' where delivery_cd = '" + list.get(i).get("delivery_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        logger.info("update tb_sl_delivery_detail");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                    }
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success.";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                }
+            }
+            if ( type.equals("cust_btn5") ) {
+                Gson gson = new Gson();
+                
+                if (header != null) {
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        dateInput = list.get(i).get("delivery_date").toString();
+                        sql = "select d.comp_cd, d.factory_cd, d.delivery_cd, d.delivery_seq, d.item_cd, d.delivery_qty, d.delivery_amt, m.wh_cd, d.progress_status from tb_sl_delivery_detail d join tb_sl_delivery m on m.delivery_cd = d.delivery_cd where isnull(d.use_yn,'Y') = 'Y' and d.delivery_cd = '" + list.get(i).get("delivery_cd").toString() + "' and d.comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and d.factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        List<Map<String, Object>> deliveries = selectAllQuery(conn, sql);
+                        
+                        for(int j = 0 ; j < deliveries.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_delivery_detail", deliveries.get(j));
+
+                            //xu ly kho
+                            if (deliveries.get(j).get("progress_status").equals("confirmed")) {
+                                String returnValueHandleWH[] = new String[2];
+                                
+                                returnValueHandleWH = call_ACT_STSStkUpt(conn, "D", deliveries.get(j).get("comp_cd").toString(), deliveries.get(j).get("factory_cd").toString(), deliveries.get(j).get("item_cd").toString(),
+                                formatDateInput(dateInput), "1", 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, Double.parseDouble(row.get("delivery_qty")), Double.parseDouble(row.get("delivery_amt").toString()), 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0);
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                
+                                returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "D", deliveries.get(j).get("comp_cd").toString(), deliveries.get(j).get("factory_cd").toString(), deliveries.get(j).get("item_cd").toString(), 
+                                deliveries.get(j).get("wh_cd").toString(), formatDateInput(dateInput), "1", 0.00, 0.0,
+                                0.00, 0.00, 0.00, Double.parseDouble(row.get("delivery_qty")), 0.00, 
+                                0.00, 0.00, 0.00, 0.0, 0.0);
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                
+                                returnValueHandleWH = call_ACT_STMUseQty(conn, "D2", "IVOUT", deliveries.get(j).get("comp_cd").toString(), deliveries.get(j).get("factory_cd").toString(), deliveries.get(j).get("item_cd").toString(), deliveries.get(j).get("wh_cd").toString(), -Double.parseDouble(row.get("delivery_qty").toString()), formatDateInput(dateInput), deliveries.get(j).get("delivery_cd").toString(), Integer.parseInt(row.get("delivery_seq")), "0");
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                
+                            }
+                            
+                        
+                    }    
+                        
+                        //update detail
+                        sql = "update tb_sl_delivery_detail set progress_status = 'created' where delivery_cd = '" + list.get(i).get("delivery_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        logger.info("update tb_sl_delivery_detail");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                        
+                    }
+                    //handle error
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success.";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                    //end
+                }
+            }
+            
+
+            
+            if ( type.equals("get_data_detail") ) {
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                
+                sql = "select a.comp_cd, a.factory_cd, a.delivery_cd, a.order_cd, a.order_seq, a.project_cd, a.delivery_seq, a.item_cd, i.item_no, i.item_nm, i.spec, i.unit, a.p_item_cd, a.delivery_qty, a.delivery_price, a.supply_amt, a.vat_amt, a.delivery_amt, a.progress_qty, a.progress_status , a.memo, a.use_yn, a.createdate, a.createuser, a.updatedate, a.updateuser,";
+
+                
+                sql += "case when a.progress_status = 'completed' then concat('<span class=" + '"' + "form-circle-sm" + '"' +  "style=" + '"' + "background-color:#0063B2;" + '"' + "><span style=" + '"' +"color:white;" + '"' + ">', ps.code_value, '</span</span>') when a.progress_status = 'delivery_complete' then concat('<span class=" + '"' + "form-circle-sm" + '"' +"style=" + '"' +"background-color:#fca326;" + '"' + "><span style=" + '"' + "color:white;" + '"' + ">', ps.code_value, '</span</span>') else concat('<span class=" + '"' + "form-circle-sm" + '"' + "style=" + '"' + "background-color:#2BAE66;" + '"' + "><span style=" + '"' +"color:white;" + '"' + ">', ps.code_value, '</span</span>') end as progress_status_nm";
+      
+                sql += " from tb_sl_delivery_detail a left join tb_ma_item i on i.item_cd = a.item_cd left join vw_ma_code_de_progress_status ps on ps.code = a.progress_status";
+                
+                sql += " where a.comp_cd ='" + comp_cd +  "'and a.factory_cd ='" + factory_cd + "'and isnull(a.use_yn, 'Y') = 'Y'" + "and a.delivery_cd in (";
+                
+                
+                /*sql += " where a.comp_cd = '" + comp_cd + "' and a.factory_cd = '" + factory_cd + "' and a.invoice_export_cd in (";*/
+                
+               
+                
+                if(header != null){
+                    
+                    String [] delivery_cd_list = header.split(",");
+                    
+                    for(int i = 0 ; i < delivery_cd_list.length ; i ++){
+                        
+                        String item = java.net.URLDecoder.decode(delivery_cd_list[i], "UTF-8");
+                    
+                        item = item.replaceAll("\"", "'");
+                        
+                        if (i == delivery_cd_list.length - 1) {
+                            sql +=  item   + ")" ;
+                        } else {
+                            sql +=  item + ", ";
+                        }
+                    }
+                    
+                    sql = sql.replaceAll("[\\[\\]]", "");
+                    
+                    logger.info("Select info tb_sl_delivery_detail");
+                    logger.info(sql);
+                    pstmt = conn.prepareStatement(sql);
+                    rs = pstmt.executeQuery();
+                    
+                    List<Map<String, Object>> list = new ArrayList<>();
+                    
+                    while (rs.next()) {
+                    
+                        Map<String, Object> row = new HashMap<>();
+                        ResultSetMetaData rsmd = rs.getMetaData();
+                        int columnCount = rsmd.getColumnCount();
+                        for (int i = 1; i <= columnCount; i++) {
+                                String columnName = rsmd.getColumnName(i);
+                                Object columnValue = rs.getObject(i);
+                                row.put(columnName, columnValue);
+                        }
+                        
+                        list.add(row);
+                    }
+                    
+                    Gson gson = new Gson();
+                    String data = gson.toJson(list);
+                    
+                    out.print(data);
+                    
+                }
+             
+                
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+            
+            if (type.equals("excel")) {
+                List<Map> list;
+                int i;
+                Map<String, String> row;
+                String cnt;
+                Iterator<String> keys;
+                
+                Gson gson = new Gson();
+                
+                java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+                java.util.Date time = new java.util.Date();
+                String datetime = dateFormat.format(time);
+                
+                int CNT = 0;
+                
+                String in_cd = "";
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                boolean isInsert = true;
+                
+                if(header != null){
+                
+                    list = gson.fromJson(header, List.class);
+                   
+                    
+                    for(i = 0 ; i < list.size() ; i ++){
+                        dateInput = list.get(i).get("delivery_date").toString();
+                        row = getRow(conn, "simbiz", "dbo", "tb_sl_delivery", list.get(i));
+                        
+                        cnt = getSOrder(conn, " select count(*) cnt from tb_sl_delivery where delivery_cd = " + row.get("delivery_cd") + " ");
+                        
+                        isInsert = cnt.equals("0");
+                        
+                        if(isInsert){
+                            row.put("delivery_cd", "'" + generateCode(conn, "CC000022") + "'");
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            
+                            if ( row.get(key) != null) {
+                                String value = row.get(key);
+                                
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                
+                                if (key.equals("comp_cd") && value.equals("NULL")) {
+                                   
+                                    sqlValues += "'" + comp_cd + "'";
+                                    
+                                } else if (key.equals("factory_cd") && value.equals("NULL")) {
+                                    
+                                    sqlValues +=  "'" + factory_cd + "'";
+                                    
+                                } else if (key.equals("status") && value.equals("NULL")){
+                                     sqlValues +=  "'new'";
+                                }
+                                else {
+                                    sqlValues += value; 
+                                }
+                                
+                                
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("delivery_cd")  && !key.equals("status") && !key.equals("createuser") && !key.equals("createdate")  && !value.equals("NULL")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                                
+                            }
+                            
+                        }
+                        
+                        if(isInsert) {
+                            sql =  " insert into tb_sl_delivery (" + sqlCoumns + ") VALUES (" + sqlValues + ") ";
+                            logger.info("insert into tb_sl_delivery");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                        else {
+                            sql =  " update tb_sl_delivery set " + sqlDuplis + " where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and delivery_cd = " + row.get("delivery_cd") + " ";
+
+                            logger.info("update into tb_sl_delivery");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                        
+                        CNT++;
+                        isInsert = true;
+                        
+                    }
+                }
+                
+                if(detail != null){
+   
+                    double order_progress_qty = 0.0;
+                    String order_progress_status = "";
+                    int prev_delivery_qty = 0;
+                    int order_qty = 0;
+                    boolean is_connect_order = false;
+                    
+                    list = gson.fromJson(detail, List.class);
+                    
+                    for(i = 0 ; i < list.size() ; i ++){
+                        row = getRow(conn, "simbiz", "dbo", "tb_sl_delivery_detail", list.get(i));
+                        
+                        cnt = getSOrder(conn, " select count(*) cnt from tb_sl_delivery_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and delivery_cd = " + row.get("delivery_cd") + "and delivery_seq = " + row.get("delivery_seq"));
+                        
+                        isInsert = cnt.equals("0");
+                        
+                        if(isInsert){
+                            sql = "  select isnull(max(delivery_seq), 0) + 1 as in_seq from tb_sl_delivery_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and delivery_cd = " + row.get("delivery_cd") + "  ";
+                            row.put("delivery_seq", getSOrder(conn, sql));
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                
+                                sqlCoumns += key;
+                                
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                
+                                if (key.equals("comp_cd") && value.equals("NULL")) {
+                                
+                                    sqlValues += "'" + comp_cd + "'";
+                                    
+                                } else if (key.equals("factory_cd") && value.equals("NULL")) {
+                                
+                                    sqlValues +=  "'" + factory_cd + "'";
+                                    
+                                } else if (key.equals("progress_status") && value.equals("NULL")){
+                                    sqlValues += "'created'";
+                                }
+                                else {
+                                    sqlValues += value; 
+                                }
+                                
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("delivery_cd") && !key.equals("progress_status") && !key.equals("createuser") && !key.equals("createdate")  && !value.equals("NULL")) {
+                                
+                                    if (!sqlDuplis.equals("") ) { sqlDuplis += ", "; }
+                                    
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        if(isInsert) {
+                            sql =  " insert into tb_sl_delivery_detail (" + sqlCoumns + ") VALUES (" + sqlValues + ") ";
+                            
+                            logger.info("insert into tb_sl_delivery_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        }
+                        else {
+                            //check connect order
+                            is_connect_order = false;
+                            prev_delivery_qty = 0;
+                            if (!row.get("order_cd").equals("NULL") && !row.get("order_seq").equals("NULL")) {
+                                sql = " select order_cd, order_seq from tb_sl_order_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq") + " ";
+                                stmt = conn.createStatement();
+                                rs = stmt.executeQuery(sql);
+                                while (rs.next()) {
+                                    is_connect_order = true;
+                                }
+                                //get in qty before update
+                                if (is_connect_order) {
+                                    sql = " select isnull(delivery_qty, 0) as delivery_qty from tb_sl_delivery_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and delivery_cd = " + row.get("delivery_cd") + " and delivery_seq = " + row.get("delivery_seq") + " ";
+                                    prev_delivery_qty = Integer.parseInt(selectQuery(conn, sql));
+                                }
+                            }
+                        
+                        
+                            sql = " update tb_sl_delivery_detail set " + sqlDuplis + " where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and delivery_cd = " + row.get("delivery_cd") + " and delivery_seq = " + row.get("delivery_seq");
+                            
+                            logger.info("update into tb_sl_delivery_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        }
+                        
+                        // Get wh_cd from tb_sl_delivery
+                        String wh_cd = "";
+                        sql = "SELECT ISNULL(wh_cd, 'empty') as wh_cd FROM tb_sl_delivery where delivery_cd = " + row.get("delivery_cd");
+
+                        wh_cd = selectQuery(conn, sql);
+     
+                        if(wh_cd.equals("empty")){
+                            throw new Exception("not found wh_cd");
+                        }
+                        
+                       //handle enter the warehouse
+                        if (isInsert) {
+                            String[] returnValueHandleWH = new String[2];
+                            returnValueHandleWH = call_ACT_STSStkUpt(conn, "D", comp_cd, factory_cd, list.get(i).get("item_cd").toString(), formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.parseDouble(row.get("delivery_qty")), Double.parseDouble(row.get("delivery_amt").toString()));
+                            if (!returnValueHandleWH[0].equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "D", comp_cd, factory_cd, list.get(i).get("item_cd").toString(), wh_cd.replace("'", ""), formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.parseDouble(row.get("delivery_qty")));
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            returnValueHandleWH = call_ACT_STMUseQty(conn, "I1", "SELLOUT", comp_cd, factory_cd, list.get(i).get("item_cd").toString(), wh_cd.replace("'", ""),
+                            
+                            -Double.parseDouble(row.get("delivery_qty")), formatDateInput(dateInput), row.get("delivery_cd").replace("'", ""), Integer.parseInt(row.get("delivery_seq")), "0");
+                            
+                            if (!returnValueHandleWH[0].equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                        }
+                        
+                        
+                       //update progress order detail
+                        if (!row.get("order_cd").equals("NULL") && !row.get("order_seq").equals("NULL")) {
+                            sql = " select isnull(progress_qty, 0) as progress_qty from tb_sl_order_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq") + " ";
+                            order_progress_qty = (Integer.parseInt(selectQuery(conn, sql)) - prev_delivery_qty) + Double.parseDouble(row.get("delivery_qty"));
+                            
+                            sql = " select isnull(order_qty, 0) as order_qty from tb_sl_order_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq") + " ";
+                            order_qty = Integer.parseInt(selectQuery(conn, sql));
+                            
+                            order_progress_status = order_progress_qty >= order_qty ? "completed" : "in_progress";
+                            sql = " update tb_sl_order_detail set progress_status = '" + order_progress_status + "', progress_qty = " + order_progress_qty + " where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq") + " ";
+                            logger.info("update tb_sl_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        CNT++;
+                        isInsert = true;
+                       
+                    }
+                }
+                
+                
+                jsonObj.put("result", "Y");
+                jsonObj.put("CNT", CNT);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            
+            }
+
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+    
+     out.write("sql" + sql + "error : " + e + "\n" );
+    
+        if (e.getMessage().equals("not found wh_cd")){
+            out.write("error : not found wh_cd");
+        }else{
+            out.write("error : " + e.getMessage() + "\n" + sql);    
+        }
+        
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

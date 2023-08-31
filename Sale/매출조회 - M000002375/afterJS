@@ -1,0 +1,2 @@
+var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() + 200);
+    grid1.setHeight(height);

@@ -1,0 +1,122 @@
+$("#del_btn").hide();
+$("#save_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#search_btn").click();
+
+$("#cust_btn1").on("click", function () {
+    const checked1 = grid1.getCheckedRows();
+    
+    if (checked1.length === 0) {
+        msg("품목 한개 선택하십시오!",null,"N");
+        return false;
+    }
+    
+    if (checked1.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked1.length; i++) {
+            if (nvl(checked1[i][itmobj1["status"]],"pending") !== "pending") {
+                error_msg = "승인 요청 상태만 승인 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }    
+        
+        if (check_flag) {
+            if (confirm("승인하십니까?")) { //Bạn có chắc chắn xác nhận những yêu cầu này không?
+                let header = [];
+                for(let i = 0; i < checked1.length; i++) {
+                    const item = {};
+                    item.prod_item_cd = checked1[i][itmobj1["prod_item_cd"]];
+                    item.c_item_cd = checked1[i][itmobj1["c_item_cd"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn1";
+                data.menucode = "M000002454";
+                data.header = JSON.stringify(header);
+                
+                $.ajax({
+                type: "POST",
+                url: "/ajax.do",
+                data: data,
+                success: function(response, status, request) {
+                    response = JSON.parse(response);
+                    console.log(response.result)
+                    if (response.result == "Success") {
+                        msg("승인 완료되었습니다!", null, "N"); //Xủ lý thành công.
+                        $("#search_btn").trigger("click")
+                    } else {
+                        msg(response.result, null, "N");
+                    }
+                },
+                error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                    
+                });
+            }
+        } else {
+            msg(error_msg);
+        }
+    }
+})
+
+$("#cust_btn2").on("click", function () {
+    const checked1 = grid1.getCheckedRows();
+    
+    if (checked1.length === 0) {
+        msg("품목 한개 선택하십시오!",null,"N");
+        return false;
+    }
+    
+    if (checked1.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        // for(let i = 0; i < checked1.length; i++) {
+        //     if (nvl(checked1[i][itmobj1["status"]],"pending") !== "pending") {
+        //         error_msg = "chi trang thai 승인 요청 moi co the huy phe duyet!"
+        //         check_flag = false;
+        //         break;
+        //     }
+        // }    
+        
+        if (check_flag) {
+            if (confirm("승인 취소하십니까??")) { //Bạn có chắc chắn xác nhận những yêu cầu này không?
+                let header = [];
+                for(let i = 0; i < checked1.length; i++) {
+                    const item = {};
+                    item.prod_item_cd = checked1[i][itmobj1["prod_item_cd"]];
+                    item.c_item_cd = checked1[i][itmobj1["c_item_cd"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn2";
+                data.menucode = "M000002454";
+                data.header = JSON.stringify(header);
+                
+                $.ajax({
+                type: "POST",
+                url: "/ajax.do",
+                data: data,
+                success: function(response, status, request) {
+                    response = JSON.parse(response);
+                    console.log(response.result)
+                    if (response.result == "Success") {
+                        msg("승인 취소되었습니다!", null, "N"); //Xủ lý thành công.
+                        $("#search_btn").trigger("click")
+                    } else {
+                        msg(response.result, null, "N");
+                    }
+                },
+                error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                    
+                });
+            }
+        } else {
+            msg(error_msg);
+        }
+    }
+})
+

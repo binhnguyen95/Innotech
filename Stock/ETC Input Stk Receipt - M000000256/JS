@@ -1,0 +1,168 @@
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+grid1.on("dblclick", function (ev) {
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["in_stk_cd"]]);
+    console.log($("#DUMMY3").val())
+  }
+});
+
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["in_out_status"]] !== "done") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+});
+
+$("#cust_btn3").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["in_out_status"]],"new") !== "new") {
+                error_msg = "작성 상태만 확정처리가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }    
+        
+        if (check_flag) {
+            if (confirm("해당 요청을 확정하시겠습니까?")) { //Bạn có chắc chắn xác nhận những yêu cầu này không?
+                let header = [];
+                for(let i = 0; i < checked.length; i++) {
+                    const item = {};
+                    item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                    item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                    item.in_stk_cd = checked[i][itmobj1["in_stk_cd"]];
+                    item.in_stk_ymd = checked[i][itmobj1["in_stk_ymd"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn3";
+                data.menucode = "M000000256";
+                data.header = JSON.stringify(header);
+                
+                $.ajax({
+                type: "POST",
+                url: "/ajax.do",
+                data: data,
+                success: function(response, status, request) {
+                    response = JSON.parse(response);
+                    if (response.result == "Success.") {
+                        msg("처리 완료되었습니다!", null, "N"); //Xủ lý thành công.
+                        $("#search_btn").trigger("click")
+                    } else {
+                        msg(response.result, null, "N");
+                    }
+                },
+                error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                    
+                });
+            }
+        } else {
+            error_msg = "해당 요청이 처리되거나 취소되었습니다!" //Những yêu cầu này đã được xử lý hoặc hủy bỏ!
+            msg(error_msg);
+        }
+    }
+})
+
+$("#cust_btn4").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["in_out_status"]],"confirmed") !== "confirmed") {
+                error_msg = "확정된 것만  확정 취소가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }
+        
+        if (check_flag) {
+            if (confirm("취소하시겠습니까? ")) { //Bạn có chắc chắn hủy bỏ những yêu cầu này không?
+                let header = [];
+                for(let i = 0; i < checked.length; i++) {
+                    const item = {};
+                    item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                    item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                    item.in_stk_cd = checked[i][itmobj1["in_stk_cd"]];
+                    item.in_stk_ymd = checked[i][itmobj1["in_stk_ymd"]];
+                    header.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn4";
+                data.menucode = "M000000256";
+                data.header = JSON.stringify(header);
+                
+                $.ajax({
+                type: "POST",
+                url: "/ajax.do",
+                data: data,
+                success: function(response, status, request) {
+                    response = JSON.parse(response);
+                    if (response.result == "Success.") {
+                        msg("처리 완료되었습니다!", null, "N"); //Xủ lý thành công.
+                        $("#search_btn").trigger("click")
+                    } else {
+                        msg(response.result, null, "N");
+                    }
+                },
+                error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                    
+                });
+            }
+        } else {
+            error_msg = "해당 요청이 처리되거나 취소되었습니다!" // Những yêu cầu này đã được xử lý hoặc hủy bỏ!
+            msg(error_msg);
+        }
+    }
+})
+
+//handle jump from request
+let in_requestGrid1 = localStorage.getItem("in_requestGrid1");
+let in_requestGrid11 = localStorage.getItem("in_requestGrid11");
+if (in_requestGrid1 && in_requestGrid11) {
+  $("#cust_btn1").trigger("click");
+}

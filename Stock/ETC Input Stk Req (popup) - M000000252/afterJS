@@ -1,0 +1,28 @@
+var gd1 = grid1.getRows();
+if ( gd1.length > 0 ) {
+    grid1.check(0);
+}
+
+if (nvl($(`select#${itmobj1["in_stk_cd"]}`).val(), "") !== "") {
+    $(`select#${itmobj1["in_stk_cd"]}`).parent().parent().show();
+    $(`select#${itmobj1["in_stk_cd"]}`).attr("disabled", "disabled");
+    $("#del_btn").hide();
+    $("#detail-delrow").hide();
+    // $("#detail-addrow").hide();
+}
+
+var gd11 = grid1_1.getRows();
+if ( gd11.length > 0 ) {
+    for (let i = 0; i <= gd11.length; i++) {
+        if (gd11[i][itmobj2["in_out_status"]] && gd11[i][itmobj2["in_out_status"]] !== "new") {
+            $("#del_btn").hide();
+            $("#detail-delrow").hide();
+            $("#" + itmobj1["wh_cd"]).prop("disabled", true);
+            $("#" + itmobj1["cust_cd"]).prop("disabled", true);
+            $("#" + itmobj1["in_req_ymd"]).prop("disabled", true);
+            $("#" + itmobj2["req_qty"]).prop("disabled", true);
+            $("#" + itmobj2["item_cd"]).prop("disabled", true);
+            break;
+        }
+    }
+}

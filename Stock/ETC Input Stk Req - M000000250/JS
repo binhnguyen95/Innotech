@@ -1,0 +1,120 @@
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+
+
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+//double click to update
+grid1.on("dblclick", function (ev) {
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["in_req_cd"]]);
+    console.log($("#DUMMY3").val())
+  }
+});
+
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["in_out_status"]] !== "done") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+
+$("#cust_btn3").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      obj.in_req_cd = gd1[i][itmobj1["in_req_cd"]];
+      obj.in_stk_type = gd1[i][itmobj1["in_stk_type"]];
+      obj.wh_cd = gd1[i][itmobj1["wh_cd"]];
+      obj.wh_nm = gd1[i][itmobj1["wh_nm"]];
+      obj.cust_cd = gd1[i][itmobj1["cust_cd"]];
+      obj.cust_nm = gd1[i][itmobj1["cust_nm"]];
+      obj.in_req_ymd = gd1[i][itmobj1["in_req_ymd"]];
+      obj.memo = gd1[i][itmobj1["memo"]];
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+        if (!gd11[i][itmobj2["item_cd"]]) {
+        msg("제품을 업데이트하십시오.", null, "N"); //품목을 선택하십시오!"
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+      
+      if (nvl(gd11[i][itmobj2["in_out_status"]], "") == "done") {
+        msg(`제품 ${gd11[i][itmobj2["item_cd"]]} 가 완료되었습니다.`, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.in_req_cd = gd11[i][itmobj2["in_req_cd"]];
+      obj.in_req_seq = gd11[i][itmobj2["in_req_seq"]];
+      obj.in_out_status = gd11[i][itmobj2["in_out_status"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.req_qty = obj.order_qty = +nvl(gd11[i][itmobj2["req_qty"]],0) - +nvl(gd11[i][itmobj2["prog_qty"]],0);
+      gd11Convert.push(obj);
+    }
+    localStorage.setItem("in_requestGrid1", JSON.stringify(gd1Convert));
+    localStorage.setItem("in_requestGrid11", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000000256_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000000256").trigger("click");
+  } else {
+    msg("품목을 선택하십시오!", null, "N"); //해당 제품을 선택하십시오.
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});

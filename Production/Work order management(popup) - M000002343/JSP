@@ -1,0 +1,887 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.time.LocalDate"%>
+<%@page import="java.time.format.DateTimeFormatter"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sql_copy = "";
+    String sql1 = "";
+    String sqlCoumns = "";
+    String sqlCoumns_copy = "";
+    String sqlValues = "";
+    String sqlValues_copy = "";
+    String sqlDuplis = "";
+    String sqlDuplis_copy = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    String errorMessage = "";
+    
+    LocalDate today = LocalDate.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMM");
+    String formattedDateNow = today.format(formatter);
+    
+    String project_cd = "";
+    String prodColumns = "";
+    String prodValues = "";
+    String work_order_date = "";
+    String work_result_cd = "";
+    String work_result_seq = "";
+    String item_ing = "";
+    String item_order = "";
+    
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+            
+                Gson gson = new Gson();
+                String work_order_cd = "";
+                String comp_cd = "'in'";
+                String factory_cd = "'in0001'";
+                String wh_cd = "";
+                int listSize = 0;
+                int process_qty = 0;
+                boolean isInsert = true;
+                String dateInput = "";
+                String process_status = "";
+                String prod_type = "";
+                String prod_qty = "";
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    listSize = list.size();
+                    for(int i = 0 ; i < list.size() ; i++){
+                    dateInput = list.get(i).get("work_order_date").toString();
+                        if (list.size() > 1) break;
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                            
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_work_order", list.get(i));
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_prod_work_order where work_order_cd = " + row.get("work_order_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                        
+                        sql = "SELECT prod_type FROM tb_prod_plan WHERE project_cd = " + row.get("project_cd") ;
+                        prod_type = selectQuery(conn, sql);
+                        
+                        sql = "SELECT qty FROM tb_prod_plan WHERE project_cd = " + row.get("project_cd") ;
+                        prod_qty = selectQuery(conn, sql);
+                        prod_qty = prod_type.equals("P") ? "1" : prod_qty;
+                        
+                        sql1 = "SELECT process_status FROM tb_prod_work_order WHERE work_order_cd = " + row.get("work_order_cd");
+                        process_status = selectQuery(conn, sql1);
+                        
+                        sql = "SELECT item_cd FROM tb_prod_work_order WHERE work_order_cd = " + row.get("work_order_cd") ;
+                        item_order = selectQuery(conn, sql);
+                        
+                        sql = "SELECT item_cd FROM tb_ma_item WHERE p_item_cd = " + "'" + item_order + "'" + " and item_type = 'ITEM02'";
+                        item_ing = selectQuery(conn, sql);
+
+                        project_cd = row.get("project_cd");
+                        
+                        process_qty = Integer.parseInt(row.get("process_qty"));
+                        
+                        if (process_qty <= 0 || process_qty > 100) {
+                            continue;
+                        }
+                        
+                        if (process_qty > 0 || process_qty < 100) {
+                            row.put("process_status", "'processing'");
+                        }
+                            
+                        if (!cnt.equals("0")) {
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    // 기본키 제외 duplicate sql 만들기
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("work_order_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            
+                            work_order_cd = row.get("work_order_cd");
+                            work_order_date = row.get("work_order_date");
+                            
+                            sql = " update tb_prod_work_order set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and work_order_cd = " + row.get("work_order_cd");
+                            logger.info("update tb_prod_work_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                            //them moi ban thanh pham vao tb_prod_work_result
+                            Map<String, String> row1 = getRow(conn, "simbiz", "dbo", "tb_prod_work_result", list.get(i));
+                            row1.put("work_result_cd", "'" + generateCode(conn, "CC002079") + "'");
+                            work_result_cd = row1.get("work_result_cd");
+                            
+                            String get_item = "";
+                            String result_qty = "";
+                            
+                            //kiem tra cung work_order_cd da ton tai ban thanh pham chua
+                            sql = "SELECT count(item_cd) FROM tb_prod_work_result WHERE work_order_cd = " + row.get("work_order_cd") + " and item_cd = " + "'" + item_ing + "'";
+                            get_item = selectQuery(conn, sql);
+                            result_qty = get_item.equals("0") ? prod_qty : "0";
+                            
+                            if(row1.get("work_result_seq").equals("NULL")){
+                                sql = "  select isnull(max(work_result_seq), 0) + 1 as work_result_seq from tb_prod_work_result where comp_cd = " + row1.get("comp_cd") + " and factory_cd = " + row1.get("factory_cd") + " and work_result_cd = " + work_result_cd + "  ";
+                                row1.put("work_result_seq", getSOrder(conn, sql));
+                                
+                                Iterator<String> keys = row1.keySet().iterator();
+                                while(keys.hasNext()){
+                                    String key = keys.next();
+                                    if ( row1.get(key) != null) {                        
+                                        String value = row1.get(key);
+                                        
+                                        if (!sqlCoumns_copy.equals("")) { sqlCoumns_copy += ", "; }
+                                        sqlCoumns_copy += key;
+                                        if (!sqlValues_copy.equals("")) { sqlValues_copy += ", "; }
+                                        
+                                        
+                                        if (key.equals("work_result_cd")) {
+                                            sqlValues_copy += work_result_cd;
+                                        } else if (key.equals("work_result_seq")) {
+                                            sqlValues_copy += "0";
+                                        } else if (key.equals("work_order_seq")) {
+                                            sqlValues_copy += "0";
+                                        } else if (key.equals("work_result_date")) {
+                                            sqlValues_copy += work_order_date;    
+                                        } else if (key.equals("project_cd")) {
+                                            sqlValues_copy += "'" + item_ing + "'";    
+                                        } else if (key.equals("item_cd")) {
+                                            sqlValues_copy += "'" + item_ing + "'";
+                                        } else if (key.equals("in_qty")) {
+                                            sqlValues_copy += "'" + result_qty + "'";
+                                        } else {
+                                            sqlValues_copy += value;
+                                        }
+                                    }
+                                }
+                                
+                                sql_copy =  " insert into tb_prod_work_result (" + sqlCoumns_copy + ") VALUES (" + sqlValues_copy + ")";
+                                
+                                /*out.write("insert result ING : " + sql_copy + " ");
+                                if (conn != null) conn.close();
+                                if (pstmt != null) pstmt.close();*/
+                                
+                                logger.info(sql_copy);
+                                pstmt = conn.prepareStatement(sql_copy);
+                                pstmt.executeUpdate();
+                                addHistory(sql_copy);
+                                
+                            }
+                            
+                    
+                        
+                            //get item price last version
+                            sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                            String lastPrice = selectQuery(conn, sql);
+                            lastPrice = lastPrice == null ? "0" : lastPrice;
+                            
+                            //handle warehouse
+                            String returnValueHandleWH[] = new String[2];
+                            
+                            
+                            //them ban thanh pham vao kho
+                            String item_cd = "";
+                            
+                            sql = "SELECT item_cd FROM tb_prod_plan WHERE plan_cd = (SELECT plan_cd FROM tb_prod_work_order WHERE work_order_cd = '"+  list.get(i).get("work_order_cd")  + "')" ;
+                            item_cd = selectQuery(conn, sql);
+
+                            /*out.write("stock : " + prod_qty + " " );
+                            if (conn != null) conn.close();
+                            if (pstmt != null) pstmt.close();*/
+
+                            returnValueHandleWH = call_ACT_STSStkUpt(conn, "I", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), item_ing, formatDateInput(dateInput), "1", Double.parseDouble(result_qty), Double.parseDouble(lastPrice), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            
+                            returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "I", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), item_ing, list.get(i).get("wh_cd").toString(), formatDateInput(dateInput), "1", Double.parseDouble(result_qty), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            
+                            returnValueHandleWH = call_ACT_STMUseQty(conn, "I2", "MATIN", list.get(i).get("comp_cd").toString(), list.get(i).get("factory_cd").toString(), item_ing, list.get(i).get("wh_cd").toString(), Double.parseDouble(result_qty), formatDateInput(dateInput), list.get(i).get("work_order_cd").toString(), 0, "0");
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            
+                        /*Map<String, String> row1 = getRow(conn, "simbiz", "dbo", "tb_prod_work_result", list.get(i));
+                        row1.put("work_result_cd", "'" + generateCode(conn, "CC002079") + "'");
+                        work_result_cd = row1.get("work_result_cd");*/
+                       
+                    }
+                }
+                if (listSize == 1) {
+                    String work_order_seqList[] = new String[0];
+                    if (detail != null) {
+                        List<Map> listDetail = gson.fromJson(detail, List.class);
+                        work_order_seqList = new String[listDetail.size()];
+                        for(int i = 0 ; i < listDetail.size() ; i++){
+                            //clear sql statement
+                            sqlCoumns = "";
+                            sqlCoumns_copy = "";
+                            sqlValues = "";
+                            sqlValues_copy = "";
+                            sqlDuplis = "";
+                            sqlDuplis_copy = "";
+                            
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_work_order_detail", listDetail.get(i));
+
+                            String detail_cnt = getSOrder(conn, " select count(*) detail_cnt from tb_prod_work_order_detail where work_order_cd = " + row.get("work_order_cd") + " and work_order_seq = " + row.get("work_order_seq") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                            
+                            double input_qty = 0.0;
+                            if (!listDetail.get(i).get("input_qty").toString().equals("")) { 
+                                input_qty = Double.parseDouble(listDetail.get(i).get("input_qty").toString());
+                            }
+                            
+                            String work_order_seq = "";
+                            String item_cd = "";
+                            double in_qty =  0.0;
+                            String remark = "";
+                            
+                            String p_item_cd = "";
+                            String bom_level = "";
+                            String check_item = "";
+                            
+                            //lay ma
+                            sql = "SELECT p_item_cd FROM tb_ma_item WHERE p_item_cd = " + "'" + item_order + "'" + " and item_type = 'ITEM02'";
+                            //sql = "SELECT p_item_cd FROM tb_ma_bom WHERE p_item_cd = " + "'" + item_order + "'";
+                            p_item_cd = selectQuery(conn, sql);
+                            sql = "SELECT bom_level FROM tb_ma_bom WHERE p_item_cd = " + "'" + item_order + "'";
+                            bom_level = selectQuery(conn, sql);
+                            
+                            //kiem tra ban thanh pham da ton tai trong detail chua
+                            sql1 = "SELECT count(item_cd) FROM tb_prod_work_order_detail WHERE work_order_cd = " + row.get("work_order_cd") + " and item_cd = " + "'" + item_ing + "'";
+                            check_item = selectQuery(conn, sql1);
+
+                            if (p_item_cd == null) {
+                                throw new Exception("BOM not found");
+                            }
+                            
+                            if (item_ing == null) {
+                                throw new Exception("ITEM02");
+                            }
+                            
+                            if (detail_cnt.equals("0")) {
+                           
+                                row.put("work_order_cd", work_order_cd);
+                                sql = "  select isnull(max(work_order_seq), 0) + 1 as work_order_seq from tb_prod_work_order_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and work_order_cd = " + work_order_cd + "  ";
+                                row.put("work_order_seq", getSOrder(conn, sql));
+                                Iterator<String> keys = row.keySet().iterator();
+                                
+                                  
+                                while(keys.hasNext()){
+                                    String key = keys.next();
+                                    if ( row.get(key) != null) {                        
+                                        String value = row.get(key);
+                                        if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                        sqlCoumns += key;
+                                        if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                        if (key.equals("process_qty")) {
+                                            value = input_qty + "";
+                                        }
+                                        if (key.equals("process_status") && value.equals("'new'") && input_qty > 0) {
+                                            value = "'processing'";
+                                        }
+                                        sqlValues += value;
+                                        
+                                    }
+                                }
+                                
+                                work_order_cd = row.get("work_order_cd");
+                                work_order_seq = row.get("work_order_seq");
+                                item_cd = row.get("item_cd");
+                                
+                                in_qty = Double.parseDouble(listDetail.get(i).get("input_qty").toString());
+                                
+                                remark = row.get("remark");
+
+                                sql =  " insert into tb_prod_work_order_detail (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                                
+                                logger.info("insert into tb_prod_work_order_detail");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                            } else {
+                                Iterator<String> keys = row.keySet().iterator();
+                                while(keys.hasNext()){
+                                    String key = keys.next();
+                                    if ( row.get(key) != null) {
+                                        // 기본키 제외 duplicate sql 만들기
+                                        String value = row.get(key);
+                                        
+                                        if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("work_order_cd") && !key.equals("work_order_seq") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        
+                                            if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                            if (key.equals("process_qty")) {
+                                                if (value.equals("NULL")) {
+                                                    value = input_qty + "";
+                                                } else {
+                                                    value = Double.parseDouble(value) + input_qty + "";
+                                                }
+                                            }
+                                            if (key.equals("process_status") && value.equals("'new'") && input_qty > 0) {
+                                                value = "'processing'";
+                                            }
+                                            sqlDuplis += (key + "=" + value);
+                                            
+                                        }
+                                    }
+                                }
+                                
+                                work_order_cd = row.get("work_order_cd");
+                                work_order_seq = row.get("work_order_seq");
+                                item_cd = row.get("item_cd");
+                                
+                                if (!listDetail.get(i).get("input_qty").toString().equals("")) { 
+                                    in_qty = Double.parseDouble(listDetail.get(i).get("input_qty").toString());
+                                }
+
+                                remark = row.get("remark");
+                                sql = " update tb_prod_work_order_detail set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and work_order_cd = " + row.get("work_order_cd") + " and work_order_seq = " + row.get("work_order_seq");
+                                
+                                logger.info("update tb_prod_work_order_detail");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory("update", sql);
+                            }
+                            
+                            prod_qty = prod_type.equals("P") ? "1" : prod_qty;
+                            
+                            //them ban thanh pham vao detail
+                            if (check_item.equals("0")) {
+                                sqlCoumns_copy = "";
+                                sqlValues_copy = "";
+                                sqlDuplis_copy = "";
+                                
+
+                                Iterator<String> keys1 = row.keySet().iterator();
+                                while(keys1.hasNext()){
+                                    String key = keys1.next();
+                                    if ( row.get(key) != null) {                        
+                                        String value = row.get(key);
+                                        
+                                        if (!sqlCoumns_copy.equals("")) { sqlCoumns_copy += ", "; }
+                                        sqlCoumns_copy += key;
+                                        if (!sqlValues_copy.equals("")) { sqlValues_copy += ", "; }
+
+                                        if (key.equals("item_cd")) {
+                                            sqlValues_copy += "'" + item_ing + "'";
+                                        } else if(key.equals("use_yn")) {
+                                            sqlValues_copy += "'" + "Y" + "'";
+                                        } else if(key.equals("bom_level")) {
+                                            sqlValues_copy += "" + bom_level + "";
+                                        } else if(key.equals("work_order_seq")) {
+                                            sqlValues_copy += "0";
+                                        } else if(key.equals("qty")) {
+                                            sqlValues_copy += "'" + prod_qty + "'";
+                                        } else if(key.equals("process_qty")) {
+                                            sqlValues_copy += "'" + prod_qty + "'";
+                                        } else if(key.equals("process_status")) {
+                                            sqlValues_copy += "'" + "processing" + "'";
+                                        } else {
+                                            sqlValues_copy += value; 
+                                        }
+                                    }
+                                }
+                                    
+                                sql_copy =  " insert into tb_prod_work_order_detail (" + sqlCoumns_copy + ") VALUES (" + sqlValues_copy + ")";
+                                
+                                /*out.write("insert sql_copy : " + sql_copy + " " + item_ing + " ");
+                                if (conn != null) conn.close();
+                                if (pstmt != null) pstmt.close();*/
+                                
+                                logger.info("insert into tb_prod_work_order_detail");
+                                logger.info(sql_copy);
+                                pstmt = conn.prepareStatement(sql_copy);
+                                pstmt.executeUpdate();
+                                addHistory(sql_copy);
+                            } 
+                            /*else if (row.get("process_status").equals("'new'")){
+                                Iterator<String> keys = row.keySet().iterator();
+                                while(keys.hasNext()){
+                                    String key = keys.next();
+                                    if ( row.get(key) != null) {
+                                        // 기본키 제외 duplicate sql 만들기
+                                        String value = row.get(key);
+                                        
+                                        if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("work_order_cd") && !key.equals("work_order_seq") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        
+                                            if (!sqlDuplis_copy.equals("")) { sqlDuplis_copy += ", "; }
+                                            
+                                            if(key.equals("qty")){
+                                                sqlDuplis_copy +=  (key + "=" + prod_qty);
+                                            } else if(key.equals("process_qty")) {
+                                                sqlDuplis_copy += (key + "=" + prod_qty);
+                                            } else if(key.equals("process_status")) {
+                                                sqlDuplis_copy += (key + "=" + "'processing'");
+                                            } else {
+                                                sqlDuplis_copy += (key + "=" + value);    
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                work_order_cd = row.get("work_order_cd");
+                                work_order_seq = row.get("work_order_seq");
+                                item_cd = row.get("item_cd");
+                                
+                                if (!listDetail.get(i).get("input_qty").toString().equals("")) { 
+                                    in_qty = Double.parseDouble(listDetail.get(i).get("input_qty").toString());
+                                }
+
+                                remark = row.get("remark");
+                                sql_copy = " update tb_prod_work_order_detail set " + sqlDuplis_copy + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and work_order_cd = " + row.get("work_order_cd") + " and work_order_seq = " + row.get("work_order_seq");
+                                
+                                out.write("update sql_copy : " + sql_copy + " " + row.get("process_status"));
+                                if (conn != null) conn.close();
+                                if (pstmt != null) pstmt.close();
+                                
+                                logger.info("update tb_prod_work_order_detail");
+                                logger.info(sql_copy);
+                                pstmt = conn.prepareStatement(sql_copy);
+                                pstmt.executeUpdate();
+                                addHistory("update", sql_copy);
+                            }*/
+
+                            //them moi vao tb_prod_work_result
+                            Map<String, String> row1 = getRow(conn, "simbiz", "dbo", "tb_prod_work_result", listDetail.get(i));
+
+                            prodColumns = "";
+                            prodValues = "";
+                            
+                            if(row1.get("work_result_seq").equals("NULL")){
+                                sql = "  select isnull(max(work_result_seq), 0) + 1 as work_result_seq from tb_prod_work_result where comp_cd = " + row1.get("comp_cd") + " and factory_cd = " + row1.get("factory_cd") + " and work_result_cd = " + work_result_cd + "  ";
+                                row1.put("work_result_seq", getSOrder(conn, sql));
+                                
+                                Iterator<String> keys = row1.keySet().iterator();
+                                while(keys.hasNext()){
+                                    String key = keys.next();
+                                    if ( row1.get(key) != null) {                        
+                                        String value = row1.get(key);
+                                        if (!prodColumns.equals("")) { prodColumns += ", "; }
+                                        prodColumns += key;
+                                        if (!prodValues.equals("")) { prodValues += ", "; }
+                                        
+                                        if (key.equals("work_result_cd")) {
+                                            prodValues += work_result_cd;
+                                        } else if (key.equals("project_cd")) {
+                                            prodValues += "'" + item_ing + "'";    
+                                        } else if (key.equals("work_result_date")) {
+                                            prodValues += work_order_date;    
+                                        } else if (key.equals("work_order_cd")) {
+                                            prodValues += work_order_cd;
+                                        } else if (key.equals("work_order_seq")) {
+                                            prodValues += work_order_seq;
+                                        } else if (key.equals("item_cd")) {
+                                            prodValues += item_cd;
+                                        } else if (key.equals("in_qty")) {
+                                            prodValues += in_qty;
+                                        } else if (key.equals("remark")) {
+                                            prodValues += remark;
+                                        } else {
+                                            prodValues += value;
+                                        }
+                                        
+                                    }
+                                }
+                                
+                                sql =  " insert into tb_prod_work_result (" + prodColumns + ") VALUES (" + prodValues + ")";
+                                
+                                /*out.write("day la result : " + sql + " ");
+                                if (conn != null) conn.close();
+                                if (pstmt != null) pstmt.close();*/
+                                
+                                logger.info("insert into tb_prod_work_result");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                                
+                            }
+                            
+                            //get item price last version
+                            sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                            String lastPrice = selectQuery(conn, sql);
+                            lastPrice = lastPrice == null ? "0" : lastPrice;
+
+                            //handle warehouse
+                            String returnValueHandleWH[] = new String[2];
+                            
+                            returnValueHandleWH = call_ACT_STSStkUpt(conn, "I", listDetail.get(i).get("comp_cd").toString(), listDetail.get(i).get("factory_cd").toString(), listDetail.get(i).get("item_cd").toString(), formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, input_qty, input_qty * Double.parseDouble(lastPrice), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            
+                            returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "I", listDetail.get(i).get("comp_cd").toString(), listDetail.get(i).get("factory_cd").toString(), listDetail.get(i).get("item_cd").toString(), listDetail.get(i).get("wh_cd").toString(), formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, input_qty , 0.0, 0.0, 0.0, 0.0);
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+                            
+                            returnValueHandleWH = call_ACT_STMUseQty(conn, "I2", "MATOUT", listDetail.get(i).get("comp_cd").toString(), listDetail.get(i).get("factory_cd").toString(), listDetail.get(i).get("item_cd").toString(), listDetail.get(i).get("wh_cd").toString(), -input_qty, formatDateInput(dateInput), work_order_cd.replace("'", ""), (int)Double.parseDouble(row.get("work_order_seq")), "0");
+                            if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                throw new Exception(handleErrorCode(returnValueHandleWH[1]));
+                            }
+
+                            work_order_seqList[i] = row.get("work_order_seq");
+                            
+                        }
+                    }
+                    
+                    //delete word order detail
+                    sql = " delete from tb_prod_work_order_detail where comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and work_order_cd = " + work_order_cd + " and isnull(process_qty,0) = 0 ";	
+                    if (work_order_seqList.length > 0) {
+                        sql += " and work_order_seq not in ( ";
+                        for(int iDetailDelete = 0; iDetailDelete < work_order_seqList.length; iDetailDelete++)
+                        {
+                            if (iDetailDelete == work_order_seqList.length - 1) {
+                                sql += "" + work_order_seqList[iDetailDelete] + ")";
+                            } else {
+                                sql += "" + work_order_seqList[iDetailDelete] + ", ";
+                            }
+                        }
+                    }
+                    
+                    logger.info("delete into tb_prod_work_order_detail");
+                    logger.info(sql);
+                    pstmt = conn.prepareStatement(sql);
+                    pstmt.executeUpdate();
+                
+                }
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            if ( type.equals("delete") ) {
+                String errorMsg = "";
+                Gson gson = new Gson();
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_work_order", list.get(i));
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_prod_work_order where process_status != 'new' and plan_cd = " + row.get("plan_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                        
+                        if (cnt.equals("0")) {
+                            sql =  " delete from tb_prod_work_order where plan_cd = " + row.get("plan_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            
+                            logger.info("delete into tb_prod_work_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            sql =  " delete from tb_prod_work_order_detail where work_order_cd in (select work_order_cd from tb_prod_work_order where plan_cd = " + row.get("plan_cd") + ") and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            logger.info("delete into tb_prod_work_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            logger.info("delete into tb_prod_work_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            sql = " update tb_prod_plan set process_status = 'new', process_qty = 0 where plan_cd = " + row.get("plan_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            
+                            logger.info("update into tb_prod_plan");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        } else {
+                            errorMsg += "<br/>This plan is processing or completed. Can't delete.";
+                        }
+                    }
+                }
+                
+                if(!errorMsg.equals("")) {
+                    throw new Exception(errorMsg);
+                }
+                
+                PassText = "삭제되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+            if ( type.equals("get_qty") ) {
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                String item_cd = (String)request.getParameter("item_cd");
+                
+                if (item_cd != null) {
+                    
+                    sql = "select UseQty ";
+                    sql += " from tb_ts_nqty where item_cd = '" + item_cd + "'";
+                    String useQty = selectQuery(conn, sql);
+                    out.write(useQty);
+                }
+            }
+            
+            if ( type.equals("get_use_qty_of_wh") ) {
+                String wh_cd = (String)request.getParameter("wh_cd");
+                String item_cd = (String)request.getParameter("item_cd");
+                if (wh_cd != null && item_cd != null) {
+                    
+                    sql = "select UseQty ";
+                    sql += " from tb_ts_nqty where wh_cd = '" + wh_cd + "' and item_cd = '" + item_cd +"'";
+                    String useQty = selectQuery(conn, sql);
+                    useQty = useQty != null ? useQty : "0";
+                    out.write(useQty);
+                }
+            }
+            
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("excel") ) {
+                List<Map> list;
+                int i;
+                Map<String, String> row;
+                String cnt;
+                Iterator<String> keys;
+                
+                Gson gson = new Gson();
+                
+                java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+                java.util.Date time = new java.util.Date();
+                String datetime = dateFormat.format(time);
+                
+                int CNT = 0;
+                
+                String in_cd = "";
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                boolean isInsert = true;
+                String dateInput = "";
+                if(detail != null){
+   
+                    double order_progress_qty = 0.0;
+                    String order_progress_status = "";
+                    int prev_delivery_qty = 0;
+                    int order_qty = 0;
+                    boolean is_connect_order = false;
+                    
+                    list = gson.fromJson(detail, List.class);
+                    
+                    for(i = 0 ; i < list.size() ; i ++){
+                    dateInput = list.get(i).get("work_order_date").toString();
+                        row = getRow(conn, "simbiz", "dbo", "tb_prod_work_order_detail", list.get(i));
+                        
+                        cnt = getSOrder(conn, " select count(*) cnt from tb_prod_work_order_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and work_order_cd = " + row.get("work_order_cd") + "and work_order_seq = " + row.get("work_order_seq"));
+                        
+                        isInsert = cnt.equals("0");
+                        
+                        if(isInsert){
+                            sql = "  select isnull(max(work_order_seq), 0) + 1 as work_order_seq from tb_prod_work_order_detail where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and work_order_cd = " + row.get("work_order_cd") + "  ";
+                            row.put("work_order_seq", getSOrder(conn, sql));
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        
+                        keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                
+                                sqlCoumns += key;
+                                
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                
+                                if (key.equals("comp_cd") && value.equals("NULL")) {
+                                
+                                    sqlValues += "'" + comp_cd + "'";
+                                    
+                                } else if (key.equals("factory_cd") && value.equals("NULL")) {
+                                
+                                    sqlValues +=  "'" + factory_cd + "'";
+                                    
+                                } else if (key.equals("process_status") && value.equals("NULL")){
+                                    sqlValues += "'new'";
+                                }
+                                else {
+                                    sqlValues += value; 
+                                }
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("work_order_cd") && !key.equals("process_status") && !key.equals("createuser") && !key.equals("createdate")  && !value.equals("NULL")) {
+                                
+                                    if (!sqlDuplis.equals("") ) { sqlDuplis += ", "; }
+                                    
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                    
+        
+                        if(isInsert) {
+                            sql =  " insert into tb_prod_work_order_detail (" + sqlCoumns + ") VALUES (" + sqlValues + ") ";
+                            logger.info("insert into tb_prod_work_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        } else {
+                           
+                            sql = " update tb_prod_work_order_detail set " + sqlDuplis + " where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and work_order_cd = " + row.get("work_order_cd") + " and work_order_seq = " + row.get("work_order_seq");
+                            logger.info("update into tb_prod_work_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        }
+                        
+                            // Get wh_cd from tb_sl_delivery
+                            
+                            sql = "SELECT wh_cd FROM tb_ma_wh where wh_type = 'WH_TYPE3' and use_yn = 'Y'";
+                            String wh_cd = "";
+                            wh_cd = selectQuery(conn, sql);
+         
+                            if(wh_cd.equals("empty")){
+                                throw new Exception("not found wh_cd");
+                            }
+                            
+                            wh_cd = list.get(i).get("wh_cd").toString();
+                       
+                            //get item price last version
+                            sql = "select price from tb_ma_item_price where item_cd = " + row.get("item_cd") + " and last_version = 'Y' and price_cd = 'purchase'";
+                            String lastPrice = selectQuery(conn, sql);
+                            lastPrice = lastPrice == null ? "0" : lastPrice;
+                        
+                            //handle enter the warehouse
+                            if (isInsert) {
+                                String[] returnValueHandleWH = new String[2];
+                                
+                                returnValueHandleWH = call_ACT_STSStkUpt(conn, "D", comp_cd, factory_cd, list.get(i).get("item_cd").toString(), 
+                                formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.parseDouble(list.get(i).get("input_qty").toString()), Double.parseDouble(list.get(i).get("input_qty").toString())*Double.parseDouble(lastPrice),
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                                
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                
+                                returnValueHandleWH = call_ACT_STSWHStkUpt(conn, "D", comp_cd, factory_cd, list.get(i).get("item_cd").toString(), 
+                                wh_cd, formatDateInput(dateInput), "1", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.parseDouble(list.get(i).get("input_qty").toString()), 0.0, 0.0, 0.0, 0.0);
+                                
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                                
+                                returnValueHandleWH = call_ACT_STMUseQty(conn, "I2", "MATOUT", comp_cd, factory_cd.toString(), list.get(i).get("item_cd").toString(),
+                                wh_cd, -Double.parseDouble(list.get(i).get("input_qty").toString()), formatDateInput(dateInput), list.get(i).get("work_order_cd").toString().replace("'", ""), 
+                                (int)Double.parseDouble(row.get("work_order_seq")), "0");
+                                
+                                if (!returnValueHandleWH[0].trim().equals("OK")) {
+                                    errorMessage = handleErrorCode(returnValueHandleWH[1]);
+                                    break;
+                                }
+                            }
+                    
+                        CNT++;
+                        isInsert = true;
+                       
+                    }
+                }
+                
+                 jsonObj.put("result", "Y");
+                jsonObj.put("CNT", CNT);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+                
+                
+            }
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+    
+        if (e.getMessage().equals("not found wh_cd")){
+            out.write("error : not found wh_cd");
+        }else if (e.getMessage().equals("BOM not found")){
+            out.write("BOM에 등록되어 있지 않은 품목이 존재합니다!");
+        } else if (e.getMessage().equals("ITEM02")){
+            out.write("해당품목은 반제품 등록 안 되어있습니다!");
+        } else{
+            out.write("error : " + e);    
+        }
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

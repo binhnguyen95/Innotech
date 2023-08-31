@@ -1,0 +1,31 @@
+//set default manager
+if (nvl(grid1.getValue(0, itmobj1["manager_id"]), "") === "") grid1.setValue(0, itmobj1["manager_id"], $("#UID").val());
+if (nvl(grid1.getValue(0, itmobj1["dept_cd"]), "") === "") grid1.setValue(0, itmobj1["dept_cd"], $("#DUMMY10").val());
+
+var gd1 = grid1.getRows();
+if ( gd1.length > 0 ) {
+    grid1.check(0);
+    setTimeout(function() {
+        if (!localStorage.getItem("sl_sale_grid11") && grid1_1.getRows().length > 0) {
+            localStorage.setItem("sl_sale_grid11", JSON.stringify(grid1_1.getRows()));
+        }
+    },500)
+}
+sessionStorage.setItem("230_checked", "true");
+
+if (nvl($(`select#${itmobj1["delivery_cd"]}`).val(), "") !== "") {
+    $(`select#${itmobj1["delivery_cd"]}`).parent().parent().show();
+    $(`select#${itmobj1["delivery_cd"]}`).attr("disabled", "disabled");
+    // $("#del_btn").hide();
+    // $("#detail-delrow").hide();
+    $("#detail-addrow").hide();
+}
+var gd11 = grid1_1.getRows();
+if ( gd11.length > 0 ) {
+    for (let i = 0; i <= gd11.length; i++) {
+        if (gd11[i][itmobj2["progress_status"]] && gd11[i][itmobj2["progress_status"]] !== "created") {
+            $("#del_btn").hide();
+            break;
+        }
+    }
+}

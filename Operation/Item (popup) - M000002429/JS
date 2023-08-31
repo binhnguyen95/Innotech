@@ -1,0 +1,43 @@
+$("#search_btn").hide();
+$("#reset_btn").hide();
+var DUMMY1 = parent.$("#DUMMY1").val();
+var DUMMY2 = parent.$("#DUMMY2").val();
+var DUMMY3 = parent.$("#DUMMY3").val();
+
+if ( nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != "" ) {
+    $("#" + itmobj1["comp_cd"]).val(DUMMY1);
+    $("#" + itmobj1["factory_cd"]).val(DUMMY2);
+    $("#" + itmobj1["item_cd"]).val(DUMMY3);
+    $("#search_btn").trigger("click");
+}
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function(){
+    if ( $(this).val() == "Y" ) {
+        $(this).val("N");
+        parent.$("#search_btn").trigger("click");
+        parent.$("#NMODModal").dialog("destroy");
+    }
+});
+
+//주요부품여부
+if ($(`#${itmobj1["is_essential_by_products"]}`).is(":checked")) {
+    $(`#${itmobj1["essential_by_products_name"]}`).parent().parent().show();
+    // $(`#${itmobj1["is_follow"]}`).parent().parent().show();
+} else {
+    $(`#${itmobj1["essential_by_products_name"]}`).parent().parent().hide();
+    // $(`#${itmobj1["is_follow"]}`).parent().parent().hide();
+    $(`#${itmobj1["essential_by_products_name"]}`).val("");
+    // $(`#${itmobj1["is_follow"]}`).attr("checked", false);
+}
+
+$(`#${itmobj1["is_essential_by_products"]}`).on("change", function() {
+    if ($(this).is(":checked")) {
+        $(`#${itmobj1["essential_by_products_name"]}`).parent().parent().show();
+        // $(`#${itmobj1["is_follow"]}`).parent().parent().show();
+    } else {
+        $(`#${itmobj1["essential_by_products_name"]}`).parent().parent().hide();
+        // $(`#${itmobj1["is_follow"]}`).parent().parent().hide();
+        $(`#${itmobj1["essential_by_products_name"]}`).val("");
+        // $(`#${itmobj1["is_follow"]}`).attr("checked", false);
+    }
+})

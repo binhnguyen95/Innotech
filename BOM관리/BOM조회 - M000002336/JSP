@@ -1,0 +1,607 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+
+    String sLine = "";
+    String sText = "";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    String errorMessage = "";
+    
+    List<Map> list = null;
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+            
+                Gson gson = new Gson();
+                String prod_item_cd = "";
+                String revision = "";
+                
+                if(header != null){
+                    list = gson.fromJson(header, List.class);
+                    boolean isInsert = true;
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                            
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom_prod", list.get(i));
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_ma_bom_prod where prod_item_cd = " + row.get("prod_item_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                        
+                        isInsert = cnt.equals("0");
+                        if (row.get("revision").equals("NULL")) row.put("revision", "1");
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                if (key.equals("use_yn") && value.equals("NULL")) {
+                                   sqlValues += "'Y'"; 
+                                } else {
+                                    sqlValues += value;
+                                }
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("prod_item_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        prod_item_cd = row.get("prod_item_cd");
+                        revision = row.get("revision");
+                        
+                        if (isInsert){
+                            sql =  " insert into tb_ma_bom_prod (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_ma_bom_prod");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }else{
+                            sql = " update tb_ma_bom_prod set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and prod_item_cd = " + row.get("prod_item_cd");
+                            logger.info("update tb_ma_bom_prod");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                    }
+                }
+                if (list != null && list.size() == 1) {
+                    if (detail != null) {
+                        //delete all boom
+                        sql =  " delete from tb_ma_bom where prod_item_cd = " + prod_item_cd + " ";
+                        logger.info("delete from tb_ma_bom");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        
+                        list = gson.fromJson(detail, List.class);
+                        for(int i = 0 ; i < list.size() ; i ++){
+                            //clear sql statement
+                            sqlCoumns = "";
+                            sqlValues = "";
+                            sqlDuplis = "";
+                            
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom", list.get(i));
+                            
+                            row.put("prod_item_cd", prod_item_cd);
+                            row.put("p_item_cd", prod_item_cd);
+                            row.put("revision", revision);
+                            row.put("bom_level", "1");
+                            
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("use_yn") && value.equals("NULL")) {
+                                       sqlValues += "'Y'"; 
+                                    } else if (key.equals("manager_id") && value.equals("NULL")) {
+                                        sqlValues += "'" + UID + "'";
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                    
+                                    // 기본키 제외 duplicate sql 만들기
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("prod_item_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        
+                                        if (key.equals("manager_id")  && value.equals("NULL")) {
+                                            sqlDuplis += (key + "=" + "'" + UID + "'");
+                                        } else {
+                                            sqlDuplis += (key + "=" + value);
+                                        }
+                                        
+                                    }
+                                }
+                            }
+                            
+                            sql =  " insert into tb_ma_bom (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_ma_bom");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                    }
+                }
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom_prod", list.get(i));
+                        
+                        int revision = Integer.parseInt(list.get(i).get("revision").toString());
+                        
+                        if(revision == 1) {
+                            sql =  " delete from tb_ma_bom_prod where prod_item_cd = " + row.get("prod_item_cd");
+                            logger.info("delete from tb_ma_bom_prod");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            
+                            sql =  " delete from tb_ma_bom where prod_item_cd = " + row.get("prod_item_cd");
+                            logger.info("delete from tb_ma_bom");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        }
+                        else {
+                            revision--;
+    
+                            sql = " update tb_ma_bom_prod set revision = " + revision + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and prod_item_cd = " + row.get("prod_item_cd");
+                            logger.info("update tb_ma_bom_prod");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            
+                            sql =  " delete from tb_ma_bom where prod_item_cd = " + row.get("prod_item_cd") + " and revision = " + list.get(i).get("revision").toString() + " ";
+                            logger.info("delete from tb_ma_bom");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        }
+                    }
+                }
+                PassText = "삭제되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            
+            if ( type.equals("cust_btn3") ) {
+                Gson gson = new Gson();
+                String prod_item_cd = "";
+                String revision = "";
+                
+                if(header != null){
+                    list = gson.fromJson(header, List.class);
+                    boolean isInsert = true;
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom_prod", list.get(i));
+                        
+                        revision = getSOrder(conn, " select revision + 1 revision from tb_ma_bom_prod where prod_item_cd = " + row.get("prod_item_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                        row.put("revision", revision);
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                if (key.equals("use_yn") && value.equals("NULL")) {
+                                   sqlValues += "'Y'"; 
+                                } else {
+                                    sqlValues += value;
+                                }
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("prod_item_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        prod_item_cd = row.get("prod_item_cd");
+                        revision = row.get("revision");
+                        
+                        sql = " update tb_ma_bom_prod set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and prod_item_cd = " + row.get("prod_item_cd");
+                        logger.info("update tb_ma_bom_prod");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                        
+                        sql = " update tb_ma_bom set revision = " + revision + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and prod_item_cd = " + row.get("prod_item_cd");
+                        logger.info("update tb_ma_bom");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                    }
+                }
+                if (list != null && list.size() == 1) {
+                    if (detail != null) {
+                        //delete all boom
+                        sql =  " delete from tb_ma_bom where prod_item_cd = " + prod_item_cd + " ";
+                        logger.info("delete from tb_ma_bom");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        
+                        list = gson.fromJson(detail, List.class);
+                        for(int i = 0 ; i < list.size() ; i ++){
+                            //clear sql statement
+                            sqlCoumns = "";
+                            sqlValues = "";
+                            sqlDuplis = "";
+                            
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom", list.get(i));
+                            
+                            row.put("prod_item_cd", prod_item_cd);
+                            row.put("revision", revision);
+                            
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("use_yn") && value.equals("NULL")) {
+                                       sqlValues += "'Y'"; 
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                }
+                            }
+                            
+                            sql =  " insert into tb_ma_bom (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_ma_bom");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                    }
+                }
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+            
+            if ( type.equals("cust_btn4") ) {
+                Gson gson = new Gson();
+                if (detail != null) {
+                list = gson.fromJson(detail, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom", list.get(i));
+                        
+                        //update detail
+                        sql = "update tb_ma_bom set status = 'pending' where c_item_cd = " + row.get("c_item_cd") + " and prod_item_cd = " + row.get("prod_item_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " ";
+
+                        logger.info("update tb_ma_bom");
+                        logger.info(sql);
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.executeUpdate();
+                        addHistory("update", sql);
+                            
+                    }
+                   
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success";
+                        jsonObj.put("result", PassText);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                }
+            }
+            
+            if ( type.equals("get_dept") ) {
+                sql = " select top 1 DEPT1 from vw_cm_usermaster where UID = '" + UID + "'";
+                String dept = selectQuery(conn, sql);
+                out.write(new Gson().toJson(dept));
+            }
+
+            
+            if ( type.equals("cust_btn5") ) {}
+            
+            if ( type.equals("excel") ) {
+                Gson gson = new Gson();
+                
+                java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+                java.util.Date time = new java.util.Date();
+                String datetime = dateFormat.format(time);
+                
+                int CNT = 0;
+                
+                String prod_item_cd = "";
+                String revision = "";
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                boolean isInsert = true;
+                
+                
+                
+                if(header != null){
+                    list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom_prod", list.get(i));
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_ma_bom_prod where prod_item_cd = " + row.get("prod_item_cd"));
+                        
+                        isInsert = cnt.equals("0");
+                         if (row.get("revision").equals("NULL")) row.put("revision", "1");
+                        
+                        if(isInsert){
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            
+                            if ( row.get(key) != null) {
+                                String value = row.get(key);
+                                
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                
+                                if (key.equals("comp_cd") && value.equals("NULL")) {
+                                   
+                                    sqlValues += "'" + comp_cd + "'";
+                                    
+                                } else if (key.equals("factory_cd") && value.equals("NULL")) {
+                                    
+                                    sqlValues +=  "'" + factory_cd + "'";
+                                    
+                                } else if (key.equals("use_yn") && value.equals("NULL")) {
+                                    
+                                    sqlValues +=  "'Y'";
+                                    
+                                }else {
+                                    sqlValues += value; 
+                                }
+                                
+                                
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("prod_item_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                                
+                            }
+                            
+                        }
+                        prod_item_cd = row.get("prod_item_cd");
+                        revision = row.get("revision");
+                        
+                        if(isInsert) {
+                            sql =  " insert into tb_ma_bom_prod (" + sqlCoumns + ") VALUES (" + sqlValues + ") ";
+                            logger.info("insert into tb_ma_bom_prod");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                        else {
+                            sql =  " update tb_ma_bom_prod set " + sqlDuplis + " where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and prod_item_cd = " + row.get("prod_item_cd") + " ";
+                            logger.info("update into tb_ma_bom_prod");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                        
+                        CNT++;
+                        isInsert = true;
+                        
+                    }
+                }
+                
+                if(detail != null){
+                    String c_item_cd = "";
+       
+                    list = gson.fromJson(detail, List.class);
+                    
+                    for(int i = 0 ; i < list.size() ; i ++){
+                      //clear sql statement
+                            sqlCoumns = "";
+                            sqlValues = "";
+                            sqlDuplis = "";
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_bom", list.get(i));
+                 
+                        row.put("p_item_cd", row.get("prod_item_cd"));
+                        row.put("bom_level", "1");
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_ma_bom where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and c_item_cd = " + row.get("c_item_cd") + " and prod_item_cd = "
+                        + row.get("prod_item_cd") + " and revision = " + row.get("revision")  + " and p_item_cd = " + row.get("p_item_cd") + "");
+                        
+                        isInsert = cnt.equals("0");
+                        
+                        if(isInsert){
+                 
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                
+                                sqlCoumns += key;
+                                
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                
+                                if (key.equals("comp_cd") && value.equals("NULL")) {
+                                
+                                    sqlValues += "'" + comp_cd + "'";
+                                    
+                                } else if (key.equals("factory_cd") && value.equals("NULL")) {
+                                
+                                    sqlValues +=  "'" + factory_cd + "'";
+                                    
+                                } else if (key.equals("use_yn") && value.equals("NULL")){
+                                    sqlValues += "'Y'";
+                                }
+                                else {
+                                    sqlValues += value; 
+                                }
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("c_item_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        c_item_cd = row.get("c_item_cd");
+                        if(isInsert) {
+                            sql =  " insert into tb_ma_bom (" + sqlCoumns + ") VALUES (" + sqlValues + ") ";
+                            
+                            logger.info("insert into tb_ma_bom");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                        }
+                        else {
+                            sql =  " update tb_ma_bom set " + sqlDuplis + " where comp_cd = '" + comp_cd + "' and factory_cd = '" + factory_cd + "' and c_item_cd = " + row.get("c_item_cd") + " and prod_item_cd = "
+                        + row.get("prod_item_cd")+ " and revision = " + row.get("revision")+ " and p_item_cd = " + row.get("p_item_cd") +"";
+                            logger.info("update into tb_ma_bom");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }
+                        
+                        CNT++;
+                        isInsert = true;
+                       
+                    }
+                }
+                
+                
+                jsonObj.put("result", "Y");
+                jsonObj.put("CNT", CNT);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

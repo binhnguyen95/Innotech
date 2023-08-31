@@ -1,0 +1,251 @@
+SetExcelDownloadAll();
+SetExcelUploadAjax();
+$("#header-addrow").show();
+$("#header-delrow").show();
+$("#detail-addrow").show();
+$("#detail-delrow").show();
+
+// $("#detail-addrow").unbind("click");
+// $("#detail-addrow").on("click", function(){
+//     grid1_1.appendRow();
+// });
+
+// $("#detail-delrow").unbind("click");
+// $("#detail-delrow").click(function(ev){
+//     grid1_1.removeCheckedRows();
+// });
+
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+// $("#header-delrow").hide();
+$("#search_btn").trigger("click");
+// $("#detail-addrow").hide();
+// $("#detail-delrow").hide();
+
+//get dept_cd current account
+$("#DUMMY10").val("");
+var data = {};
+data.type = "get_dept";
+data.menucode = "M000002336";
+
+$.ajax({
+  type: "POST",
+  url: "/ajax.do",
+  data: data,
+  success: function (response, status, request) {
+    if (status === "success") {
+      const data = JSON.parse(response.trim())
+      console.log(data)
+      
+        $("#detail-addrow").on("click", function() {
+            setTimeout(function() {
+            var gd11 = grid1_1.getRows();
+                for (let i = 0; i < gd11.length; i++ ) {
+                    if (nvl(gd11[i][itmobj2["manager_id"]],"") === "") {
+                        grid1_1.setValue(gd11[i].rowKey , itmobj2["manager_id"], $("#UID").val());
+                    }
+                    if (nvl(gd11[i][itmobj2["dept_cd"]],"") === "") {
+                        grid1_1.setValue(gd11[i].rowKey , itmobj2["dept_cd"], data);
+                    }
+                    if (nvl(gd11[i][itmobj2["progress_status_nm"]],"") === "") {
+                        grid1_1.setValue(gd11[i].rowKey , itmobj2["progress_status_nm"], `<span class="form-circle-sm" style="background-color:#2BAE66"><span style="color:white">BOM 등록</span</span>` );
+                    }
+                }
+            },250)
+        })
+
+      
+    }
+  },
+  error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+
+
+$("#cust_btn4").on("click", function () {
+    const checked11 = grid1_1.getCheckedRows();
+    let check_flag = true;
+    let error_msg = "";
+    
+    if (checked11.length === 0) {
+        msg("품목 한개 선택하십시오!",null,"N");
+        return false;
+    }
+    
+    if (checked11.length > 0) {
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["status"]],"new") !== "new") {
+                error_msg = "BOM 등록 상태만 승인 요청할 수 있습니다"
+                check_flag = false;
+                break;
+            }
+        }
+        
+        if (check_flag) {
+            if (confirm("승인 요청하십니까?")) { //Bạn có chắc chắn xác nhận những yêu cầu này không?
+                let detail = [];
+                for(let i = 0; i < checked11.length; i++) {
+                    const item = {};
+                    item.comp_cd = checked11[i][itmobj2["comp_cd"]];
+                    item.factory_cd = checked11[i][itmobj2["factory_cd"]];
+                    item.c_item_cd = checked11[i][itmobj2["c_item_cd"]];
+                    item.prod_item_cd = checked11[i][itmobj2["prod_item_cd"]];
+                    detail.push(item);
+                }
+                var data = {};
+                data.type = "cust_btn4";
+                data.menucode = $("#menucode").val();
+                data.detail = JSON.stringify(detail);
+                
+                $.ajax({
+                type: "POST",
+                url: "/ajax.do",
+                data: data,
+                success: function(response, status, request) {
+                    response = JSON.parse(response);
+                    console.log(response.result)
+                    if (response.result == "Success") {
+                        msg("승인 요청 완료되었습니다!", null, "N"); //Xủ lý thành công.
+                        $("#search_btn").trigger("click")
+                    } else {
+                        msg(response.result, null, "N");
+                    }
+                },
+                error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                    
+                });
+            }
+        } else {
+            msg(error_msg);
+        }
+    }
+})
+
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") !== "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+
+var header_prod_item_cd_column = grid1.getColumns()[grid1.getIndexOfColumn(itmobj1["prod_item_cd"])];
+header_prod_item_cd_column.onBeforeChange = function(event){
+    const rows = grid1.getRows();
+    for (let i = 0; i < rows.length; i++) {
+        if (nvl(event.value,"") !== "" && rows[i][itmobj1["prod_item_cd"]] == event.value) {
+            msg("해당 품목은 BOM에서 등록되었습니다!", null, "N");
+            event.stop();
+            break;
+        }
+    }
+};  
+header_prod_item_cd_column.onAfterChange = function(event){
+    const rows = grid1_1.getRows();
+    for (let i = 0; i < rows.length; i++) {
+        grid1_1.setValue(rows[i].rowKey, itmobj2["prod_item_cd"], event.value);
+        grid1_1.setValue(rows[i].rowKey, itmobj2["p_item_cd"], event.value);
+        grid1_1.setValue(rows[i].rowKey, itmobj2["p_item_cd"], "1");
+    }
+};  
+
+var prod_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["prod_item_cd"])];
+prod_item_cd_column.onAfterChange = function(event){
+    if (event.value === grid1_1.getValue(event.rowKey, itmobj2["c_item_cd"])) {
+        grid1_1.setValue(event.rowKey, itmobj2["c_item_cd"],"")
+    }
+};  
+
+var c_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["c_item_cd"])];
+c_item_cd_column.onBeforeChange = function(event){
+    if (nvl(event.value,"") !== "") {
+        if (event.value === grid1_1.getValue(event.rowKey, itmobj2["p_item_cd"]) || event.value === grid1_1.getValue(event.rowKey, itmobj2["prod_item_cd"])) {
+            event.stop();
+        }
+        const rows = grid1_1.getRows();
+        for (let i = 0; i < rows.length; i++) {
+            if (nvl(event.value,"") !== "" && rows[i][itmobj2["c_item_cd"]] == event.value) {
+                msg("해당 품목은  BOM에서 등록되었습니다!", null, "N");
+                event.stop();
+                break;
+            }
+        }
+    }
+};
+
+//handle multi checked header or multi modify header
+grid1.on("check", function(event) {
+    if (grid1.getModifiedRows().length > 1) {
+        grid1_1.clear();
+        $("#detail-addrow").hide();
+        $("#detail-delrow").hide();
+    } else {
+        if (grid1.getCheckedRowKeys().length > 1) {
+            grid1_1.clear();
+            $("#detail-addrow").hide();
+            $("#detail-delrow").hide();
+        } else {
+            $("#detail-addrow").show();
+            $("#detail-delrow").show();
+        }
+    }
+});
+grid1.on("uncheck", function(event) {
+    if (grid1.getModifiedRows().length > 1) {
+        grid1_1.clear();
+        $("#detail-addrow").hide();
+        $("#detail-delrow").hide();
+    } else {
+        const checked = grid1.getCheckedRowKeys();
+        if (checked.length === 0 || grid1.getCheckedRowKeys().length > 1) {
+            grid1_1.clear();
+            $("#detail-addrow").hide();
+            $("#detail-delrow").hide();
+        }
+        if (checked.length === 1) {
+            grid1.uncheck(checked[0]);
+            grid1.check(checked[0]);
+        }
+    }
+});
+
+$("#cust_btn3").on("click", function(){
+    var gd1 = grid1.getCheckedRows();
+    
+    if(gd1.length == 0) {
+        msg("차수를 증가시킬 데이터를 선택해 주십시오.",null,"N");
+        if ( $("#msgconfirm").is(":visible") ) {$("#msgconfirm").dialog("destroy");}
+        return false;
+    }
+    
+    for(var i=0; i<gd1.length; i++){
+        var item = gd1[i];
+        var rowKey = item.rowKey;
+        if (nvl(item[itmobj1["prod_item_cd"]],"") === "") {
+            msg("[완제품코드] 필수 입력입니다.",null,"N")
+            if ( $("#msgconfirm").is(":visible") ) {$("#msgconfirm").dialog("destroy");}
+            return false;
+        }
+        
+        if(item.SIMBIZSETTYPE == "insert") {
+            msg("저장 후 사용할 수 있는 기능입니다.",null,"N");
+            if ( $("#msgconfirm").is(":visible") ) {$("#msgconfirm").dialog("destroy");}
+            return false;
+        }
+    }
+});
+
+$(window).on("resize", function(){
+   var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() +250);
+    grid1.setHeight(height);
+});
+$(window).on("resize", function(){
+   var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() +250);
+    grid1_1.setHeight(height);
+});
+

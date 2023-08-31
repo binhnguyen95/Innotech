@@ -1,0 +1,138 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+                
+            }
+
+            if ( type.equals("delete") ) {}
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {
+                String item_cd = (String)request.getParameter("item_cd");
+                String comp_cd = (String)request.getParameter("comp_cd");
+                String factory_cd = (String)request.getParameter("factory_cd");
+                String qty = (String)request.getParameter("qty");
+                
+                /*int qtyInt = Integer.parseInt(Double.parseDouble(qty));*/
+                double qtyInt = Double.parseDouble(qty);
+                
+                sql = "SELECT b.comp_cd, b.factory_cd, b.prod_item_cd as sale_order_item_cd, it.item_cd, it.item_no, it.item_nm, it.spec, it.unit, it.item_type, b.qty * " + qtyInt + " as qty, s.available_stock ";
+                sql += " FROM tb_ma_bom b join tb_ma_item it on it.item_cd = b.c_item_cd and it.factory_cd = b.factory_cd and it.comp_cd = b.comp_cd";
+                sql += " left join (select item_cd, sum(UseQty) as available_stock from tb_ts_nqty group by item_cd) s on s.item_cd = it.item_cd";
+                sql += " where b.prod_item_cd = '" + item_cd + "' and b.comp_cd = '" + comp_cd + "' and b.factory_cd = '" + factory_cd + "' and isnull(b.use_yn,'Y') = 'Y'" ;
+                String json = new Gson().toJson(selectAllQuery(conn, sql));
+                out.write(json);
+            }
+            if ( type.equals("getPurchaseRequestByOrderCD") && header != null) {
+                sql = "SELECT item_cd, SUM(request_qty) as request_qty , a.sl_order_cd FROM tb_pur_request a join tb_pur_request_detail b on a.request_cd = b.request_cd  WHERE sl_order_cd in (";
+                String [] order_cd_list = header.split(",");
+                
+                for(int i = 0 ; i < order_cd_list.length ; i ++){
+                        
+                        String item = java.net.URLDecoder.decode(order_cd_list[i], "UTF-8");
+                        item = item.replaceAll("\"", "'");
+                        
+                        if (i == order_cd_list.length - 1) {
+                            sql +=  item   + ")" ;
+                        } else {
+                            sql +=  item + ", ";
+                        }
+                }
+                sql += " GROUP BY item_cd,  a.sl_order_cd";
+                sql = sql.replaceAll("[\\[\\]]", "");
+                
+                String json = new Gson().toJson(selectAllQuery(conn, sql));
+                out.write(json);
+            }
+            
+            if(type.equals("getProdPlanByOrderCD") && header != null){
+                
+                sql = "SELECT item_cd, SUM(qty) as qty FROM tb_prod_plan WHERE use_yn = 'Y' and order_cd in (";
+                String [] order_cd_list = header.split(",");
+                
+                for(int i = 0 ; i < order_cd_list.length ; i ++){
+                        
+                        String item = java.net.URLDecoder.decode(order_cd_list[i], "UTF-8");
+                        item = item.replaceAll("\"", "'");
+                        
+                        if (i == order_cd_list.length - 1) {
+                            sql +=  item   + ")" ;
+                        } else {
+                            sql +=  item + ", ";
+                        }
+                }
+                sql += " GROUP BY item_cd";
+                sql = sql.replaceAll("[\\[\\]]", "");
+                
+                String json = new Gson().toJson(selectAllQuery(conn, sql));
+                out.write(json);
+
+            }
+            
+            //api get estimate
+            if ( type.equals("cust_btn9") ) {
+                
+            }
+            
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

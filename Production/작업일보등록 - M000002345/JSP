@@ -1,0 +1,292 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    
+    String erorMessage = "";
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+            boolean isInsert = true;
+            if ( type.equals("insert") || type.equals("edit") ) {
+            
+                Gson gson = new Gson();
+                String work_order_cd = "";
+                int listSize = 0;
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    listSize = list.size();
+                    for(int i = 0 ; i < list.size() ; i++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                            
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_self_created_work", list.get(i));
+                        String cnt = getSOrder(conn,    " select count(*) cnt from tb_prod_self_created_work where self_created_work_cd = " + row.get("self_created_work_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                      
+                        String checkDateEndOld = "0";
+                        if (!list.get(i).get("self_created_work_date_old").toString().equals("")) {
+                            checkDateEndOld = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = 'in' AND factory_cd = 'in0001' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = '" + list.get(i).get("self_created_work_date_old").toString().replace("-", "").substring(0, 6) + "'");
+                        }
+                        String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = 'in' AND factory_cd = 'in0001' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = " + row.get("self_created_work_date").replace("-", "").substring(1, 7));
+                        if(Integer.parseInt(checkDateEndOld) > 0 || Integer.parseInt(checkDateEnd) > 0){
+                            PassText = "재고마감처리가 완료되어서 저장이 불가합니다.";
+                            jsonObj.put("result", PassText);
+                            PassText = jsonObj.toString();
+                            out.write(PassText);
+                            return;
+                        } else{
+                               isInsert = cnt.equals("0");
+                            if (isInsert) row.put("self_created_work_cd", "'" + generateCode(conn, "CC002074") + "'");
+                            
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("use_yn") && value.equals("NULL")) value = "'Y'";
+                                    sqlValues += value;
+                                    // 기본키 제외 duplicate sql 만들기
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("self_created_work_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            if (isInsert){
+                                sql =  " insert into tb_prod_self_created_work (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                                logger.info("insert into tb_prod_self_created_work");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                            }else{
+                                sql = " update tb_prod_self_created_work set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and self_created_work_cd = " + row.get("self_created_work_cd") + " ";
+                                logger.info("update tb_prod_self_created_work");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory("update", sql);
+                            } 
+                            
+                        }
+                        /*
+                        out.write("error123 : " + checkDateEnd + "\n" + row.get("self_created_work_date").replace("-", "").substring(1, 7) + "xxxxxxxx" + "</br>" + "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = 'in' AND factory_cd = 'in0001' AND isnull(in_out_close_yn, '') = 'Y') AND closing_ym = " + row.get("self_created_work_date").replace("-", "").substring(1, 7));
+                        if (conn != null) conn.close();
+                        if (pstmt != null) pstmt.close();
+                        */
+        
+                        
+                        
+                    }
+                }
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_self_created_work", list.get(i));
+                        
+                        String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = 'in' AND factory_cd = 'in0001' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = " + row.get("self_created_work_date").replace("-", "").substring(1, 7));
+                        if(Integer.parseInt(checkDateEnd) > 0){
+                            PassText = "재고마감처리가 완료되어서 저장이 불가합니다.";
+                            jsonObj.put("result", PassText);
+                            PassText = jsonObj.toString();
+                            out.write(PassText);
+                            return;
+                        } else {
+                                if (!row.get("self_created_work_cd").equals("NULL")){
+                                //delete stock in
+                                sql =  " delete from tb_prod_self_created_work where self_created_work_cd = " + row.get("self_created_work_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                                
+                                logger.info("delete into tb_prod_self_created_work");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                            }
+                        }
+                        
+                    }
+                }
+                PassText = "삭제되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("cust_btn5") ) {}
+            
+            if ( type.equals("excel") ) {
+                Gson gson = new Gson();
+                
+                String UID = (String)request.getParameter("UID");
+                
+                java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+                java.util.Date time = new java.util.Date();
+                String datetime = dateFormat.format(time);
+                
+                int CNT = 0;
+                
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_prod_self_created_work", list.get(i));
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_prod_self_created_work where self_created_work_cd = " + row.get("self_created_work_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd"));
+                        
+                        if(cnt.equals("0")){
+                            isInsert = true;
+                            row.put("self_created_work_cd", "'" + generateCode(conn, "CC002074") + "'");
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        row.put("comp_cd", "'in'");
+                        row.put("factory_cd", "'in0001'");
+                        
+                        
+                        String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = 'in' AND factory_cd = 'in0001' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = " + row.get("self_created_work_date").replace("-", "").substring(1, 7));
+                        if(Integer.parseInt(checkDateEnd) > 0){
+                            PassText = "재고마감처리가 완료되어서 저장이 불가합니다.";
+                            jsonObj.put("result", PassText);
+                            PassText = jsonObj.toString();
+                            out.write(PassText);
+                            return;
+                        } else {
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("use_yn") && value.equals("NULL")) value = "'Y'";
+                                    sqlValues += value;
+                                    // 기본키 제외 duplicate sql 만들기
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("self_created_work_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            
+                            if (isInsert){
+                                sql =  " insert into tb_prod_self_created_work (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                                logger.info("insert into tb_prod_self_created_work");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                            }else{
+                                sql = " update tb_prod_self_created_work set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and self_created_work_cd = " + row.get("self_created_work_cd") + " ";
+                                logger.info("update tb_prod_self_created_work");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory("update", sql);
+                            }
+                            CNT++;
+                        
+                        }
+                        
+                        
+                    }
+                }
+
+                jsonObj.put("result", "Y");
+                jsonObj.put("CNT", CNT);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

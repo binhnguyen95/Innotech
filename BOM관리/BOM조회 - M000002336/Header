@@ -1,0 +1,21 @@
+select 
+    {item_ser} as item_ser,
+    a.comp_cd,
+    a.factory_cd,
+    a.prod_item_cd,
+    it.item_nm,
+    it.item_no,
+    it.spec,
+    it.unit,
+    it.item_type_name,
+    a.revision,
+    a.memo,
+    a.use_yn,
+    a.createuser,
+    a.createdate,
+    a.updateuser,
+    a.updatedate
+from tb_ma_bom_prod a
+    left join vw_ma_item_semi_or_finished it on it.item_cd = a.prod_item_cd and it.comp_cd = a.comp_cd and it.factory_cd = a.factory_cd
+where (isnull({item_ser}, '') = '' or a.prod_item_cd like concat('%', {item_ser}, '%') or it.item_nm like concat('%', {item_ser}, '%'))
+order by a.createdate

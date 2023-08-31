@@ -1,0 +1,81 @@
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+//get dept_cd current account
+$("#DUMMY10").val("");
+var data = {};
+data.type = "cust_btn10";
+data.menucode = "M000000221";
+data.UID = $("#UID").val();
+
+$.ajax({
+  type: "POST",
+  url: "/ajax.do",
+  data: data,
+  success: function (response, status, request) {
+    if (status === "success") {
+      $("#DUMMY10").val(response.trim());
+    }
+  },
+  error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val(gd1[0][itmobj1["comp_cd"]]);
+    $("#DUMMY2").val(gd1[0][itmobj1["factory_cd"]]);
+    $("#DUMMY3").val(gd1[0][itmobj1["h_in_cd"]]);
+  }
+});
+//check grid1 auto check grid1_1
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        console.log(gd11)
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["progress_status"]] !== "completed") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+$("#cust_btn3").on("click", function () {
+  //
+});
+
+//handle jump from stock in
+let inGrid1 = localStorage.getItem("inGrid1");
+let inGrid11 = localStorage.getItem("inGrid11");
+if (inGrid1 && inGrid11) {
+  $("#cust_btn1").trigger("click");
+}

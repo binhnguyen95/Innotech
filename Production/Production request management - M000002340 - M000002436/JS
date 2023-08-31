@@ -1,0 +1,104 @@
+$("#search_btn").trigger("click")
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+  $("#DUMMY4").val("");
+});
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+  $("#DUMMY4").val("");
+});
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["plan_cd"]]);
+    $("#DUMMY4").val(nvl(gd1[0][itmobj1["process_status"]],"") === "" ? "new" : gd1[0][itmobj1["process_status"]]);
+  }
+});
+
+$("#cust_btn3").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    if (checked.length === 1 && nvl(checked[0][itmobj1["plan_cd"]],"") !== "" && checked[0][itmobj1["process_status"]] === "new" && Number(nvl(checked[0][itmobj1["qty"]], 0)) > 0) {
+        
+        var a = "";  
+        
+        if (checked[0][itmobj1["prod_type"]] === "P") {
+            a = "생산지시를 [" + nvl(checked[0][itmobj1["qty"]], 0) + "개] 생성 하시겠습니까?"
+        } else if (checked[0][itmobj1["prod_type"]] === "N") {
+            a = "생산지시 1개(수량 :" + nvl(checked[0][itmobj1["qty"]], 0) + ")를 생성하시겠습니까?"
+        }
+        
+        if (confirm(a)) {
+            let dataPost = [];
+            let dataPostItem = {};
+            dataPostItem.comp_cd = checked[0][itmobj1["comp_cd"]];
+            dataPostItem.factory_cd = checked[0][itmobj1["factory_cd"]];
+            dataPostItem.plan_cd = checked[0][itmobj1["plan_cd"]];
+            dataPostItem.project_cd = checked[0][itmobj1["project_cd"]];
+            dataPostItem.item_cd = checked[0][itmobj1["item_cd"]];
+            dataPostItem.cust_cd = checked[0][itmobj1["cust_cd"]];
+            dataPostItem.prod_type = checked[0][itmobj1["prod_type"]];
+            dataPost.push(dataPostItem);
+            let data = {};
+            data.menucode = $("#menucode").val();
+            data.type = "cust_btn3";
+            data.UID = $("#UID").val();
+            data.qty = checked[0][itmobj1["qty"]];
+            data.data = JSON.stringify(dataPost);
+            
+            $.ajax({
+                type: "post",
+                url: "/ajax.do",
+                data: data,
+                success: function(e, t, i) {
+                    if (t === "success") {
+                        localStorage.setItem("projectCodeToPlan", dataPostItem.project_cd)
+                        parent.$(".right-menu1 #M000002342_li .ui-closable-tab").trigger("click");
+                        parent.$(".left-menu #M000002342").trigger("click");
+                    }
+                },
+                error: function(e, t, i) {
+                }
+            });
+            $("#search_btn").trigger("click")
+        }
+    } else if (checked.length > 1) {
+        alert("생산계획은 하나만 선택가능합니다!")
+    } else if (checked[0][itmobj1["process_status"]] !== "new") {
+        alert("상태가 진행중이거나 완료되었습니다!")
+    } else if (Number(nvl(checked[0][itmobj1["qty"]], 0)) <= 0) {
+        alert("생산수량을 입력하십시오!")
+    } else {
+        alert("생산계획을 선택하십시오!")
+    }
+    
+});
+
+//handle jump button from order
+let productionPlan = localStorage.getItem("productionPlan");
+if (productionPlan) {
+  $("#cust_btn1").trigger("click");
+}
+
+$(window).on("resize", function(){
+   var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() + 200);
+    grid1.setHeight(height);
+});

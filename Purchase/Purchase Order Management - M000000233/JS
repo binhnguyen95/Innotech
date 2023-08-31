@@ -1,0 +1,310 @@
+SetExcelUploadAjax();
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+
+const today = moment();
+const lastDay = today.subtract("months").endOf("month").format("YYYY-MM-DD");
+$(`#${itmobj1["fromdt"]}`).val(moment().format("YYYY-MM-01"));
+$(`#${itmobj1["todt"]}`).val(lastDay);
+
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+//get dept_cd current account
+$("#DUMMY10").val("");
+var data = {};
+data.type = "cust_btn10";
+data.menucode = "M000000221";
+data.UID = $("#UID").val();
+
+$.ajax({
+  type: "POST",
+  url: "/ajax.do",
+  data: data,
+  success: function (response, status, request) {
+    if (status === "success") {
+      $("#DUMMY10").val(response.trim());
+    }
+  },
+  error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") !== "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+  $("#DUMMY4").val("");
+});
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+  $("#DUMMY4").val("");
+});
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val("in");
+    $("#DUMMY2").val("in0001");
+    $("#DUMMY3").val(gd1[0][itmobj1["order_cd"]]);
+    console.log(gd1[0][itmobj1["have_tax"]])
+    $("#DUMMY4").val(gd1[0][itmobj1["have_tax"]]);
+  }
+});
+
+//check grid1 auto check grid1_1
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["progress_status"]] !== "completed") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+
+//jump to purchase receiving
+$("#cust_btn3").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+    
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      obj.request_cd = gd1[i][itmobj1["request_cd"]];
+      obj.order_cd = gd1[i][itmobj1["order_cd"]];
+      obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.request_type = gd1[i][itmobj1["request_type"]];
+      obj.sale_type = gd1[i][itmobj1["sale_type"]];
+      obj.cust_cd = gd1[i][itmobj1["cust_cd"]];
+      obj.cust_nm = gd1[i][itmobj1["cust_nm"]];
+      obj.cust_manager = gd1[i][itmobj1["cust_manager"]];
+      obj.cust_phone_no = gd1[i][itmobj1["cust_phone_no"]];
+      obj.cust_email = gd1[i][itmobj1["cust_email"]];
+      obj.request_dept = gd1[i][itmobj1["request_dept"]];
+      obj.requester = gd1[i][itmobj1["requester"]];
+      obj.dept_cd = gd1[i][itmobj1["dept_cd"]];
+      obj.manager_id = gd1[i][itmobj1["manager_id"]];
+      obj.have_tax = gd1[i][itmobj1["have_tax"]];
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+      if (nvl(gd11[i][itmobj2["progress_qty"]], 0) !== 0 && (+gd11[i][itmobj2["order_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0)) <= 0) {
+        msg(`데이터가 완성되었습니다!`, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+      
+        if (gd11[i][itmobj2["progress_status"]] != "confirmed" && gd11[i][itmobj2["progress_status"]] != "processing") {
+            msg(`확정처리를  먼저 하십시오!`, null, "N");
+            if ($("#msgconfirm").is(":visible")) {
+              $("#msgconfirm").dialog("destroy");
+            }
+            return false;
+        }
+
+      
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.request_cd = gd11[i][itmobj2["request_cd"]];
+      obj.request_seq = gd11[i][itmobj2["request_seq"]];
+      obj.order_cd = gd11[i][itmobj2["order_cd"]];
+      obj.order_seq = gd11[i][itmobj2["order_seq"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.item_type_nm = gd11[i][itmobj2["item_type_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.supplier_cd = gd11[i][itmobj2["supplier_cd"]];
+      obj.supplier_nm = gd11[i][itmobj2["supplier_nm"]];
+      obj.order_qty = +gd11[i][itmobj2["order_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0);
+      obj.order_price = gd11[i][itmobj2["order_price"]];
+      obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
+      obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
+      obj.order_amt = gd11[i][itmobj2["order_amt"]];
+      gd11Convert.push(obj);
+    }
+    localStorage.setItem("orderGrid1", JSON.stringify(gd1Convert));
+    localStorage.setItem("orderGrid11", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000000237_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000000237").trigger("click");
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});
+
+$("#cust_btn4").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0 && checked11.length) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"new") !== "new") {
+                error_msg = "작성 상태만 확정처리가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }   
+        
+        if (check_flag) {
+            if (confirm("발주 확정처리하시겠습니까? ")) {
+                const checked = grid1.getCheckedRows();
+                if (checked.length > 0) {
+                    let header = [];
+                    for(let i = 0; i < checked.length; i++) {
+                        const item = {};
+                        item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                        item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                        item.order_cd = checked[i][itmobj1["order_cd"]];
+                        header.push(item);
+                    }
+                    var data = {};
+                    data.type = "cust_btn4";
+                    data.menucode = "M000000233";
+                    data.header = JSON.stringify(header);
+                    
+                    $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) {
+                        response = JSON.parse(response);
+                        if (response.result == "Success.") {
+                            if (nvl(response.wh_name, "") !== "") {
+                                msg("확정처리가 완료되었습니다!", null, "N");
+                            } else {
+                                msg("처리 완료되었습니다!", null, "N");
+                            }
+                            $("#search_btn").trigger("click")
+                        } else {
+                            msg(response.result, null, "N");
+                        }
+                    },
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                        
+                    });
+                }
+            }
+        } else {
+            error_msg = "작성 상태만 확정처리가 가능합니다!"
+            msg(error_msg);
+        }
+    }
+})
+
+$("#cust_btn5").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"confirmed") !== "confirmed") {
+                error_msg = "확정된 것만  확정 취소가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }
+        
+        if (check_flag) {
+            if (confirm("취소처리하시겠습니까?")) {
+                const checked = grid1.getCheckedRows();
+                if (checked.length > 0) {
+                    let header = [];
+                    for(let i = 0; i < checked.length; i++) {
+                        const item = {};
+                        item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                        item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                        item.order_cd = checked[i][itmobj1["order_cd"]];
+                        header.push(item);
+                    }
+                    var data = {};
+                    data.type = "cust_btn5";
+                    data.menucode = "M000000233";
+                    data.header = JSON.stringify(header);
+                    
+                    $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) {
+                        response = JSON.parse(response);
+                        if (response.result == "Success.") {
+                            if (nvl(response.wh_name, "") !== "") {
+                                msg("확정취소가 완료되었습니다!", null, "N");
+                            } else {
+                                msg("처리 완료되었습니다!", null, "N");
+                            }
+                            $("#search_btn").trigger("click")
+                        } else {
+                            msg(response.result, null, "N");
+                        }
+                    },
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                        
+                    });
+                }
+            }
+        } else {
+            error_msg = "확정된 것만  확정 취소가 가능합니다!"
+            msg(error_msg);
+        }
+    }
+})
+
+
+//handle jump from request
+let requestGrid1 = localStorage.getItem("requestGrid1");
+let requestGrid11 = localStorage.getItem("requestGrid11");
+if (requestGrid1 && requestGrid11) {
+  $("#cust_btn1").trigger("click");
+}
+
+
+
+$("#mailSel_Save").text("결재상신");
+
+$("#cust_btn9").click(function(){
+  $("#print_btn").trigger("click");
+});
+
+
+$("#mailSel_Save").unbind("click");
+$("#mailSel_Save").click(function(){
+    $("#cust_btn10").trigger("click");
+});
+
+

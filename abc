@@ -1,0 +1,60 @@
+ WITH CTE AS (
+    SELECT
+        A.item_cd,
+        A.item_no,
+        A.item_nm,
+        A.spec,
+        MAX(A.unit) item_unit
+    FROM tb_ma_item A WITH (NOLOCK)
+    WHERE A.comp_cd = 'in'
+    GROUP BY A.item_cd, A.item_no, A.item_nm, A.spec
+)
+SELECT
+        MAX({item_nm_ser}) as item_nm_ser,
+        MAX({item_no_ser}) as item_no_ser,
+        MAX({StkYm_ser}) as StkYm_ser,
+        MAX({item_cd_ser}) as item_cd_ser,
+        CASE WHEN GROUPING(A.ItemID) = 1 THEN 'Total'
+        ELSE MAX(A.ItemName) END AS item_name ,
+        CASE WHEN GROUPING(A.ItemID) = 1 THEN ''
+           ELSE MAX(A.ItemNo) END                  AS item_no,
+        CASE WHEN GROUPING(A.ItemID) = 1 THEN ''
+           ELSE MAX(A.Spec) END                  AS item_spec,
+        CASE WHEN GROUPING(A.ItemID) = 1 THEN ''
+           ELSE MAX(A.ItemUnit) END                AS item_unit,
+        SUM(ISNULL(A.tot_qty, 0))                    AS tot_qty,
+        SUM(ISNULL(A.자재창고, 0))                  AS 자재창고,
+        SUM(ISNULL(A.제품창고, 0))                    AS 제품창고,
+        SUM(ISNULL(A.현장창고, 0))                  AS 현장창고,
+        SUM(ISNULL(A.기타창고, 0))                    AS 기타창고
+        
+    FROM (
+      SELECT 
+            MAX({StkYm_ser}) as StkYm_ser,
+            MAX({item_cd_ser}) as item_cd_ser,
+            A.item_cd      AS ItemID,
+            MAX(A.item_no)    AS ItemNo,
+            MAX(A.item_nm)    AS ItemName,
+            MAX(A.spec)      AS Spec,
+            MAX(A.item_unit)    AS ItemUnit,
+            SUM(B.InvStkQty)  AS tot_qty,
+            SUM(CASE WHEN B.wh_cd = 'A1'   THEN B.InvStkQty END)  AS 자재창고,
+            SUM(CASE WHEN B.wh_cd = 'B1' THEN B.InvStkQty END)  AS 제품창고,
+            SUM(CASE WHEN B.wh_cd = 'D2' THEN B.InvStkQty END)  AS 현장창고,
+            SUM(CASE WHEN B.wh_cd = 'G1' THEN B.InvStkQty END)  AS 기타창고
+            
+        FROM CTE as A
+        INNER JOIN tb_st_wh_stk B WITH (NOLOCK)
+          ON B.comp_cd = 'in'
+          AND B.item_cd = A.item_cd
+       WHERE (ISNULL({StkYm_ser},'')= '' OR B.StkYm = LEFT(REPLACE({StkYm_ser}, '-', ''), 6)) 
+        and (ISNULL({item_cd_ser},'')= '' OR A.item_cd LIKE '%' + {item_cd_ser} + '%')
+        GROUP BY A.item_cd
+        ) A
+        Where  (ISNULL({item_nm_ser},'')= '' OR A.ItemName LIKE '%' + {item_nm_ser} + '%')
+        and (ISNULL({item_no_ser},'')= '' OR A.ItemNo LIKE '%' + {item_no_ser} + '%')
+       
+    GROUP BY ROLLUP
+      (A.ItemID) 
+    HAVING SUM(ISNULL(A.tot_qty, 0)) <> 0
+    

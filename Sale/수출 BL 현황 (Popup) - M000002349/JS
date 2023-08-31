@@ -1,0 +1,460 @@
+$("#search_btn").hide();
+$("#reset_btn").hide();
+
+const CSS_INPUT_DISABLE = { 
+    "opacity" : "1",
+    "background-color" : "-internal-light-dark(graytext, rgb(221, 221, 221))"
+    
+};
+let DUMMY1 = parent.$("#DUMMY1").val();
+let DUMMY2 = parent.$("#DUMMY2").val();
+let DUMMY3 = parent.$("#DUMMY3").val();
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS, #DELETE_AFTER_JS").change(function(){
+    if ( $(this).val() == "Y" ) {
+        $(this).val("N");
+        parent.$("#search_btn").trigger("click");
+        parent.$("#NMODModal").dialog("destroy");
+    }
+});
+
+$("#detail-addrow").on("click", function() {
+    setTimeout(function() {
+        var gd11 = grid1_1.getRows();
+        for (let i = 0; i < gd11.length; i++ ) {
+            if (nvl(gd11[i][itmobj2["progress_status_nm"]],"") === "") {
+                grid1_1.setValue(i, itmobj2["progress_status_nm"], `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`);
+            }
+        }
+    },500)
+})
+
+$("#" + itmobj1["have_tax"]).attr("disabled", true);
+$("#" + itmobj1["have_tax"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["bl_export_cd"]).attr("disabled", true);
+$("#" + itmobj1["bl_export_cd"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_supply_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_supply_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_vat_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_vat_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["tot_currency_amt"]).attr("disabled", true);
+$("#" + itmobj1["tot_currency_amt"]).css(CSS_INPUT_DISABLE);
+$("#" + itmobj1["bl_amt"]).attr("disabled", true);
+$("#" + itmobj1["bl_amt"]).css(CSS_INPUT_DISABLE);
+
+const detail_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["qty"])];
+detail_qty_column.onAfterChange = function (event) {
+    calculateGrid11(event.rowKey);
+};
+
+// const detail_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["price"])];
+// detail_price_column.onAfterChange = function (event) {
+//   const price = event.value ? +event.value : 0;
+//   const qty = grid1_1.getValue(event.rowKey, itmobj2["qty"]) ? +grid1_1.getValue(event.rowKey, itmobj2["qty"]) : 0;
+  
+//   grid1_1.setValue(event.rowKey, itmobj2["supply_amt"], (calculator(price, qty, "*")));
+  
+//   // currency_pice
+//   const currency_ratio = grid1.getValue(0 , itmobj1["currency_ratio"]) ? +grid1.getValue(0 , itmobj1["currency_ratio"]) : 0;
+//   grid1_1.setValue(event.rowKey, itmobj2["currency_price"], (calculator(price, currency_ratio, "*")));
+  
+//   calculateGrid11(event.rowKey);
+// };
+
+// const detail_currency_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["currency_amt"])];
+// detail_currency_amt_column.onAfterChange = function (event) {
+//   grid1.setValue(0, itmobj1["tot_currency_amt"], sumColumn(itmobj2["currency_amt"]));
+  
+//   $(`#${itmobj1["tot_currency_amt"]}`).val(convertNumberPrice(sumColumn(itmobj2["currency_amt"])));
+// };
+
+// const detail_supply_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["supply_amt"])];
+// detail_supply_amt_column.onAfterChange = function (event) {
+//   const supply_amt = event.value ? event.value : 0;
+//   const vat_amt = grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) ? +grid1_1.getValue(event.rowKey, itmobj2["vat_amt"]) : 0;
+
+//   grid1_1.setValue(event.rowKey, itmobj2["amt"], (calculator(supply_amt, vat_amt, "+")));
+  
+//   grid1.setValue(0, itmobj1["tot_supply_amt"], sumColumn(itmobj2["supply_amt"]));
+//   $(`#${itmobj1["tot_supply_amt"]}`).val(convertNumberPrice(sumColumn(itmobj2["supply_amt"])));
+    
+// };
+
+// const header_currency_ratio_column = grid1.getColumns()[grid1.getIndexOfColumn(itmobj1["currency_ratio"])];
+// header_currency_ratio_column.onAfterChange = function (event) {
+//   const currency_ratio = event.value ? +event.value : 0;
+  
+//   let rows_detail = grid1_1.getRows();
+//   rows_detail.forEach((item, index) => {
+//     const price = grid1_1.getValue(item.rowKey, itmobj2["price"]) ? +grid1_1.getValue(item.rowKey, itmobj2["price"]) : 0;
+//     grid1_1.setValue(item.rowKey, itmobj2["currency_price"], (calculator(currency_ratio, price, "*")));
+//   })
+
+// };
+
+
+const detail_currency_price_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["currency_price"])];
+detail_currency_price_column.onAfterChange = function (event) {
+    calculateGrid11(event.rowKey);
+};
+
+
+// const detail_vat_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["vat_amt"])];
+// detail_vat_amt_column.onAfterChange = function (event) {
+//   grid1.setValue(0, itmobj1["tot_vat_amt"], sumColumn(itmobj2["vat_amt"]));
+//   $(`#${itmobj1["tot_vat_amt"]}`).val(convertNumberPrice(sumColumn(itmobj2["vat_amt"])));
+// };
+
+// const detail_amt_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["amt"])];
+// detail_amt_column.onAfterChange = function (event) {
+//   grid1.setValue(0, itmobj1["bl_amt"], sumColumn(itmobj2["amt"]));
+//   $(`#${itmobj1["bl_amt"]}`).val(convertNumberPrice(sumColumn(itmobj2["amt"])));
+// };
+
+//calculate
+$(`#${itmobj1["currency_ratio"]}`).on("change", function () {
+  const ratio = parseFloat(nvl($(this).val().replace(/,/g, ""),0));
+  const fixed = parseFloat(ratio.toFixed(2));
+  console.log(fixed);
+  //set grid1_1
+  const grid11Rows = grid1_1.getRows();
+  for (let i = 0; i < grid11Rows.length; i++) {
+      const qty = parseFloat(nvl(grid1_1.getValue(i, itmobj2["qty"]),0));
+    //   const price = parseFloat(nvl(grid1_1.getValue(i, itmobj2["price"]),0));
+      const currency_price = parseFloat(nvl(grid1_1.getValue(i, itmobj2["currency_price"]),0));
+      const price = currency_price * fixed;
+      
+      grid1_1.setValue(i, itmobj2["price"], (price).toFixed(2) + "");
+      grid1_1.setValue(i, itmobj2["currency_amt"], (currency_price*qty).toFixed(2) + "");
+      calculateGrid11();
+  }
+  $(this).blur();
+});
+
+function calculateGrid11(rowKey) {
+    const currency_price = parseFloat(nvl(grid1_1.getValue(rowKey, itmobj2["currency_price"]),0));
+    const qty = parseFloat(nvl(grid1_1.getValue(rowKey, itmobj2["qty"]),0));
+    const ratio = parseFloat(nvl($(`#${itmobj1["currency_ratio"]}`).val().replace(/,/g, ""),0));
+    const fixed = parseFloat(ratio.toFixed(2));
+    const vat = 0;
+    const price = fixed * currency_price;
+    //set grid1_1
+    grid1_1.setValue(rowKey, itmobj2["supply_amt"], (price*qty) + "");
+    grid1_1.setValue(rowKey, itmobj2["vat_amt"], (price*qty*vat) + "");
+    grid1_1.setValue(rowKey, itmobj2["amt"], (price*qty + price*qty*vat) + "");
+    grid1_1.setValue(rowKey, itmobj2["price"], (currency_price*fixed).toFixed(2) + "");
+    grid1_1.setValue(rowKey, itmobj2["currency_amt"], (currency_price*qty).toFixed(2) + "");
+
+    //set grid1
+    let tot_supply_amt = 0;
+    let tot_vat_amt = 0;
+    let tot_amt = 0;
+    let tot_currency_amt = 0;
+    const grid11Rows = grid1_1.getRows();
+    for (let i = 0; i < grid11Rows.length; i++) {
+        tot_supply_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["supply_amt"]),0));
+        tot_vat_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["vat_amt"]),0));
+        tot_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["amt"]),0));
+        tot_currency_amt += parseFloat(nvl(grid1_1.getValue(i, itmobj2["currency_amt"]),0));
+    }
+    $(`#${itmobj1["tot_supply_amt"]}`).val(formatNumber(tot_supply_amt));
+
+    $(`#${itmobj1["tot_vat_amt"]}`).val(formatNumber(tot_vat_amt));
+
+    $(`#${itmobj1["tot_amt"]}`).val(formatNumber(tot_amt));
+
+    $(`#${itmobj1["tot_currency_amt"]}`).val(parseFloat(tot_currency_amt).toFixed(2));
+    
+}
+//end calculate
+
+function sumColumn(column_name, grid = grid1_1){
+    let amount = grid.getColumnValues(column_name);
+    
+    let total = amount.reduce(function(prev, curr) {
+          return  Number(prev) + Number(curr);
+        });
+    return total;
+}
+
+
+if(nvl(DUMMY1, "") != "" && nvl(DUMMY2, "") != "" && nvl(DUMMY3, "") != ""){
+    DUMMY1.length > 1 ? $("#" + itmobj1["comp_cd"]).val(DUMMY1) : null;
+    DUMMY2.length > 1 ? $("#" + itmobj1["factory_cd"]).val(DUMMY2) : null;
+    DUMMY3.length > 1 ? $("#" + itmobj1["bl_export_cd"]).val(DUMMY3) : null;
+    parent.$("#DUMMY1").val("");
+    parent.$("#DUMMY2").val("");
+    parent.$("#DUMMY3").val("");
+    $("#search_btn").trigger("click");
+    
+} else if(localStorage.getItem("in_requestGrid1_invoice") == null) {
+    $("#detail-addrow").show();
+}
+else{
+    //handle jump from request
+  let in_requestGrid1_invoice = localStorage.getItem("in_requestGrid1_invoice");
+  let in_requestGrid11_invoice = localStorage.getItem("in_requestGrid11_invoice");
+
+  if (in_requestGrid1_invoice && in_requestGrid11_invoice) {
+    // $(`select#${itmobj1["in_req_seq"]}`).parent().parent().show();
+    // $(`select#${itmobj1["in_req_seq"]}`).attr("disabled", "disabled");
+    // $("#detail-delrow").hide();
+    $("#detail-addrow").hide();
+    in_requestGrid1_invoice = JSON.parse(in_requestGrid1_invoice);
+    in_requestGrid11_invoice = JSON.parse(in_requestGrid11_invoice);
+    renderRequestData(in_requestGrid1_invoice, in_requestGrid11_invoice);
+  }
+  localStorage.removeItem("in_requestGrid1_invoice");
+  localStorage.removeItem("in_requestGrid11_invoice");
+}
+
+
+function renderRequestData(in_requestGrid1, in_requestGrid11) {
+  grid1.clear();
+  grid1_1.clear();
+  if (in_requestGrid1.length > 0 && in_requestGrid11.length > 0) {
+    $("#" + itmobj1["comp_cd"]).val(in_requestGrid1[0].comp_cd);
+    $("#" + itmobj1["factory_cd"]).val(in_requestGrid1[0].factory_cd);
+    
+    $("#" + itmobj1["bl_export_cd"]).prop("disabled", true);
+    $("#" + itmobj1["bl_export_cd"]).css(CSS_INPUT_DISABLE);
+    
+    // logic nếu có thì k sửa, nếu k có thì cho sửa
+    $("#" + itmobj1["project_cd"]).val(!in_requestGrid1[0].project_cd ? null : in_requestGrid1[0].project_cd);
+    $("#" + itmobj1["project_cd"]).prop("disabled", true);
+    
+    $("#" + itmobj1["invoice_export_cd"]).val( !in_requestGrid1[0].invoice_export_cd ? null : in_requestGrid1[0].invoice_export_cd);
+    $("#" + itmobj1["invoice_export_cd"]).prop("disabled", true);
+    
+    $("#" + itmobj1["order_cd"]).val(!in_requestGrid1[0].order_cd ? null : in_requestGrid1[0].order_cd);
+    // $("#" + itmobj1["order_cd"]).prop("disabled", true);
+    
+    $("#" + itmobj1["order_no"]).val(!in_requestGrid1[0].order_no ? null : in_requestGrid1[0].order_no);
+    // $("#" + itmobj1["order_no"]).prop("disabled", true);
+    
+    $("#" + itmobj1["cust_cd"]).val(!in_requestGrid1[0].cust_cd ? null : in_requestGrid1[0].cust_cd);
+    $("#" + itmobj1["cust_cd"]).prop("disabled", true);
+    $("#" + itmobj1["cust_cd"]).css(CSS_INPUT_DISABLE);
+    
+    
+    $("#" + itmobj1["cust_nm"]).val(!in_requestGrid1[0].cust_nm ? null : in_requestGrid1[0].cust_nm);
+    
+    $("#" + itmobj1["cust_delivery_nm"]).val(!in_requestGrid1[0].cust_delivery_nm ? null : in_requestGrid1[0].cust_delivery_nm);
+    // $("#" + itmobj1["cust_delivery_nm"]).prop("disabled", true);
+    
+    // default is for_export
+    if(in_requestGrid1[0].sale_type.length === 0){
+        $("#" + itmobj1["sale_type"]).val(!in_requestGrid1[0].sale_type ? null : in_requestGrid1[0].sale_type);
+        // $("#" + itmobj1["sale_type"]).prop("disabled", true);
+    }
+    else{
+        $("#" + itmobj1["sale_type"]).val("for_export");
+    }
+    
+    $("#" + itmobj1["export_type"]).val(in_requestGrid1[0].invoice_export_type);
+    // $("#" + itmobj1["export_type"]).val("fob");
+    
+    
+    $("#" + itmobj1["wh_cd"]).val(in_requestGrid1[0].wh_cd ? in_requestGrid1[0].wh_cd : null);
+    // $("#" + itmobj1["wh_cd"]).prop("disabled", true);
+    
+    $("#" + itmobj1["dept_cd"]).val(!in_requestGrid1[0].dept_cd ? null : in_requestGrid1[0].dept_cd);
+    // $("#" + itmobj1["dept_cd"]).prop("disabled", true);
+    
+    $("#" + itmobj1["manager_id"]).val(!in_requestGrid1[0].manager_id ? null : in_requestGrid1[0].manager_id);
+    $("#" + itmobj1["manager_id"]).prop("disabled", true);
+    
+    $("#" + itmobj1["have_tax"]).val(!in_requestGrid1[0].have_tax ? null : in_requestGrid1[0].have_tax);
+    // $("#" + itmobj1["have_tax"]).prop("disabled", true);
+    
+    $("#" + itmobj1["tot_supply_amt"]).val( (!in_requestGrid1[0].tot_supply_amt || in_requestGrid1.length > 1) ? null : convertNumberPrice(in_requestGrid1[0].tot_supply_amt)); 
+    $("#" + itmobj1["tot_supply_amt"]).prop("disabled", true);
+    $("#" + itmobj1["tot_supply_amt"]).css(CSS_INPUT_DISABLE);
+    
+    
+    
+    $("#" + itmobj1["tot_vat_amt"]).val( (!in_requestGrid1[0].tot_vat_amt || in_requestGrid1.length > 1) ? null : convertNumberPrice(in_requestGrid1[0].tot_vat_amt));
+    // $("#" + itmobj1["tot_vat_amt"]).val(0);
+    
+    $("#" + itmobj1["tot_vat_amt"]).prop("disabled", true);
+    $("#" + itmobj1["tot_vat_amt"]).css(CSS_INPUT_DISABLE);
+    
+    $("#" + itmobj1["bl_amt"]).val( (!in_requestGrid1[0].bl_amt || in_requestGrid1.length > 1) ? null : convertNumberPrice(in_requestGrid1[0].bl_amt));
+    $("#" + itmobj1["bl_amt"]).prop("disabled", true);
+    $("#" + itmobj1["bl_amt"]).css(CSS_INPUT_DISABLE);
+
+    
+    $("#" + itmobj1["currency_unit"]).val(!in_requestGrid1[0].currency_unit ? null : in_requestGrid1[0].currency_unit);
+    $("#" + itmobj1["currency_unit"]).prop("disabled", true);
+    $("#" + itmobj1["currency_unit"]).css(CSS_INPUT_DISABLE);
+    
+    $("#" + itmobj1["currency_ratio"]).val(!in_requestGrid1[0].currency_ratio ? null : in_requestGrid1[0].currency_ratio);
+    $("#" + itmobj1["currency_ratio"]).prop("disabled", true);
+    $("#" + itmobj1["currency_ratio"]).css(CSS_INPUT_DISABLE);
+    
+    $("#" + itmobj1["tot_currency_amt"]).val((!in_requestGrid1[0].tot_currency_amt || in_requestGrid1.length > 1) ? null : convertNumberPrice(in_requestGrid1[0].tot_currency_amt));
+    $("#" + itmobj1["tot_currency_amt"]).prop("disabled", true);
+    $("#" + itmobj1["tot_currency_amt"]).css(CSS_INPUT_DISABLE);
+    
+    $("#" + itmobj1["equip_yn"]).val(in_requestGrid1[0].equip_yn);
+    // $("#" + itmobj1["equip_yn"]).prop("disabled", true);
+    // $("#" + itmobj1["equip_yn"]).css(CSS_INPUT_DISABLE);
+    
+    // get today with format YYYY-MM-DD
+    let today = new Date();
+    today = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+    $("#" + itmobj1["sale_date"]).val(today);
+    
+    // $("#" + itmobj1["export_type"]).val(!in_requestGrid1[0].export_type ? null : in_requestGrid1[0].export_type);
+    $("#" + itmobj1["export_type"]).prop("disabled", true);
+    $("#" + itmobj1["export_type"]).css(CSS_INPUT_DISABLE);
+    
+    let tot_vat_amt = 0;
+    let bl_amt = 0;
+    const dataOrderGrid11 = in_requestGrid11.map(item => {
+        let obj = {};
+        obj[itmobj2["progress_status_nm"]] = `<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">작성</span</span>`;
+        obj[itmobj2["comp_cd"]] = item.comp_cd;
+        obj[itmobj2["factory_cd"]] = item.factory_cd;
+        obj[itmobj2["invoice_export_cd"]] = item.invoice_export_cd;
+        obj[itmobj2["invoice_export_seq"]] = item.invoice_export_seq;
+        obj[itmobj2["project_cd"]] = item.project_cd;
+        
+        obj[itmobj2["item_cd"]] = item.item_cd;
+        // $("#" + itmobj2["item_cd"]).prop("disabled", true);
+        obj[itmobj2["item_no"]] = item.item_no;
+        obj[itmobj2["item_type_nm"]] = item.item_type_nm;
+        obj[itmobj2["item_nm"]] = item.item_nm;
+        obj[itmobj2["spec"]] = item.spec;
+        obj[itmobj2["unit"]] = item.unit;
+        
+        obj[itmobj2["qty"]] = item.qty;
+        obj[itmobj2["price"]] = item.price;
+        
+        obj[itmobj2["supply_amt"]] = item.supply_amt;
+        obj[itmobj2["vat_amt"]] = item.vat_amt;
+        obj[itmobj2["amt"]] = item.amt;
+        obj[itmobj2["currency_price"]] = item.currency_price;
+        obj[itmobj2["currency_amt"]] = item.currency_amt;
+        
+        tot_vat_amt += +Number(nvl(item.vat_amt,0));
+        bl_amt += +Number(nvl(item.amt,0));
+        
+        return obj;
+    });
+    grid1_1.setData(dataOrderGrid11);
+    $("#" + itmobj1["tot_vat_amt"]).val(formatNumber(tot_vat_amt));
+    $("#" + itmobj1["bl_amt"]).val(formatNumber(bl_amt));
+    // for (let i = 0; i < in_requestGrid11.length; i++) {
+    //   if (nvl(in_requestGrid11[i].invoice_export_cd, "") !== "") {
+    //     $("#detail-addrow").trigger("click");
+    //     grid1_1.setValue(i, itmobj2["comp_cd"], in_requestGrid11[i].comp_cd);
+    //     grid1_1.setValue(i, itmobj2["factory_cd"], in_requestGrid11[i].factory_cd);
+    //     grid1_1.setValue(i, itmobj2["invoice_export_cd"], in_requestGrid11[i].invoice_export_cd);
+    //     grid1_1.setValue(i, itmobj2["invoice_export_seq"], in_requestGrid11[i].invoice_export_seq);
+    //     grid1_1.setValue(i, itmobj2["project_cd"], in_requestGrid11[i].project_cd);
+        
+    //     grid1_1.setValue(i, itmobj2["item_cd"], in_requestGrid11[i].item_cd);
+    //     $("#" + itmobj2["item_cd"]).prop("disabled", true);
+        
+        
+        
+    //     grid1_1.setValue(i, itmobj2["item_nm"], in_requestGrid11[i].item_nm);
+    //     // $(`td[data-column-name = "${itmobj2["item_nm"]}"]`).css(CSS_INPUT_DISABLE);
+    //     grid1_1.setValue(i, itmobj2["unit"], in_requestGrid11[i].unit);
+    //     // $(`td[data-column-name = "${itmobj2["unit"]}"]`).css(CSS_INPUT_DISABLE);
+    //     grid1_1.setValue(i, itmobj2["spec"], in_requestGrid11[i].spec);
+    //     // $(`td[data-column-name = "${itmobj2["spec"]}"]`).css(CSS_INPUT_DISABLE);
+    //     grid1_1.setValue(i, itmobj2["item_no"], in_requestGrid11[i].item_no);
+    //     grid1_1.setValue(i, itmobj2["item_type_nm"], in_requestGrid11[i].item_type_nm);
+        
+    //     grid1_1.setValue(i, itmobj2["qty"], in_requestGrid11[i].qty);
+    //     grid1_1.setValue(i, itmobj2["price"], in_requestGrid11[i].price);
+        
+        
+        
+        
+    //     grid1_1.setValue(i, itmobj2["supply_amt"], in_requestGrid11[i].supply_amt);
+    //     // $(`td[data-column-name = "${itmobj2["supply_amt"]}"]`).css(CSS_INPUT_DISABLE);
+        
+    //     grid1_1.setValue(i, itmobj2["vat_amt"], in_requestGrid11[i].vat_amt);
+    //     // $(`td[data-column-name = "${itmobj2["vat_amt"]}"]`).css(CSS_INPUT_DISABLE);
+        
+    //     grid1_1.setValue(i, itmobj2["amt"], in_requestGrid11[i].amt);
+    //     // $(`td[data-column-name = "${itmobj2["amt"]}"]`).css(CSS_INPUT_DISABLE);
+        
+    //     grid1_1.setValue(i, itmobj2["currency_price"], in_requestGrid11[i].currency_price);
+    //     // $(`td[data-column-name = "${itmobj2["currency_price"]}"]`).css(CSS_INPUT_DISABLE);
+        
+    //     grid1_1.setValue(i, itmobj2["currency_amt"], in_requestGrid11[i].currency_amt);
+    //     // $(`td[data-column-name = "${itmobj2["currency_amt"]}"]`).css(CSS_INPUT_DISABLE);
+    //     // grid1_1.setValue(i, itmobj2["progress_qty"], in_requestGrid11[i].progress_qty);
+    //   }
+    // }
+  }
+}
+
+
+
+//validate
+grid1_1.on("check", function(event) {
+    //save grid1_1 rows to localStorage (chi luu lan dau)
+    if (!localStorage.getItem("in_requestGrid11_invoice")) {
+        localStorage.setItem("in_requestGrid11_invoice", JSON.stringify(grid1_1.getRows()));
+    }
+})
+
+var detail_stk_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["item_cd"])];
+detail_stk_item_cd_column.onAfterChange = function (event) {
+    if (grid1_1.getValue(event.rowKey, itmobj2["invoice_export_seq"])) {
+        const invoice_export_seq = grid1_1.getValue(event.rowKey, itmobj2["invoice_export_seq"]);
+        resetToOriginalValue(event.rowKey, invoice_export_seq)
+    }
+};
+
+function resetToOriginalValue(row_key, out_req_seq) {
+    let data = localStorage.getItem("in_requestGrid11_invoice");
+    if (data) {
+        data = JSON.parse(data);
+        //lay ra gia tri ban dau theo out_req_seq
+        const row = data.filter(item => item[itmobj2["invoice_export_seq"]] === out_req_seq);
+        if (row.length > 0) {
+            //dat lai gia tri
+            grid1_1.setValue(row_key, itmobj2["item_cd"], row[0][itmobj2["item_cd"]]);
+           
+        }
+    }
+}
+
+function convertNumberPrice(number){
+    if(typeof number === "number"){
+        Number.isInteger(number) ? null : number = parseFloat(number.toString().replace(/\.?0+$/, ""));
+        return number.toLocaleString("en-US", {minimumFractionDigits: 0, maximumFractionDigits: 5});    
+    }
+    return number;
+}
+
+function stringToNumber(string){
+    if(typeof string === "string"){
+        return parseFloat(string.replace(/,/g, ""));    
+    }
+	return string;
+}
+
+function calculator(first, second, operator){
+    let result = 0;
+    first = stringToNumber(first);
+    second = stringToNumber(second);
+    switch(operator) {
+      case "*":
+        result = first * second;
+        break;
+      case "+":
+        result = first + second;
+        break;
+      default:
+        result = 0;
+    }
+    return result;
+}
+

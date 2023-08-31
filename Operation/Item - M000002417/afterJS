@@ -1,0 +1,11 @@
+var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() +250);
+    grid1.setHeight(height);
+    
+// show image in grid
+$("td[data-column-name=ITEM000005314]").each(function(i, obj) {
+    const imgPath = $(obj).find(".tui-grid-cell-content").text();
+    if (imgPath) {
+        const arrImg = imgPath.split("@@@");
+        $(obj).find(".tui-grid-cell-content").html(`<img height="30" src="${arrImg[0]}" >`);
+    }
+})

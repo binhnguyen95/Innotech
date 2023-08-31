@@ -1,0 +1,125 @@
+SELECT
+  {bl_export_cd_search} as bl_export_cd_search,
+  {sale_proc_type_search} as sale_proc_type_search,
+  {sale_type_search} as sale_type_search,
+  {manager_search} as manager_search,
+  {dept_search} as dept_search,
+  {fromdt} as fromdt,
+  {todt} as todt,
+  {project_cd_search} as project_cd_search,
+  {export_type_search} as export_type_search,
+  {cust_ser} cust_ser,
+  a.comp_cd,
+  a.factory_cd,
+  a.bl_export_cd,
+  a.project_cd,
+  a.invoice_export_cd,
+  a.order_cd,
+  a.export_type,
+  a.sale_type,
+  a.sale_proc_type,
+  a.sale_date,
+  a.delivery_date,
+  a.delivery_address,
+  a.wh_cd,
+  a.dept_cd,
+  a.manager_id,
+  a.have_tax,
+  a.tot_supply_amt,
+  a.tot_vat_amt,
+  a.bl_amt,
+  a.currency_unit,
+  a.currency_ratio,
+  a.tot_currency_amt,
+  a.order_no,
+  a.equip_yn,
+  a.cust_delivery_nm,
+  a.memo "m_memo",
+  a.createuser "m_createuser",
+  a.createdate "m_createdate",
+  a.updateuser "m_updateuser",
+  a.updatedate "m_updatedate",
+  a.cust_cd,
+  b.code_value AS sale_type_name,
+  c.code_value AS sale_proc_type_name,
+  d.USERNAME AS manager_name,
+  e.DEPTNM AS manager_dept_name,
+  f.wh_nm AS wh_name,
+  g.code_value AS export_type_name,
+  h.cust_nm AS cust_name,
+
+  dt.bl_export_seq,
+  dt.invoice_export_seq,
+  dt.item_cd,
+  it.item_type_nm,
+  it.item_no,
+  it.item_nm,
+  it.spec,
+  it.unit,
+  dt.qty,
+  dt.price,
+  dt.supply_amt,
+  dt.vat_amt,
+  dt.amt,
+  dt.currency_price,
+  dt.currency_amt,
+  dt.progress_qty,
+  dt.progress_status,
+  dt.IN_DT,
+  dt.IN_SQ,
+  CASE
+    WHEN dt.progress_status = 'completed' THEN concat('<span class="form-circle-sm" style="background-color:#0063B2;"><span style="color:white;">', ps.code_value, '</span</span>')
+    WHEN dt.progress_status = 'interface' THEN concat('<span class="form-circle-sm" style="background-color:#fca326;"><span style="color:white;">', ps.code_value, '</span</span>')
+    ELSE concat('<span class="form-circle-sm" style="background-color:#2BAE66;"><span style="color:white;">', '작성', '</span</span>')
+  END AS progress_status_nm,
+  CASE
+    WHEN dt.progress_status = 'completed' THEN  ps.code_value
+    WHEN dt.progress_status = 'interface' THEN ps.code_value
+    ELSE '작성'
+  END AS progress_status_name,
+  dt.memo "d_memo",
+  dt.use_yn,
+  dt.createuser "d_createuser",
+  dt.createdate "d_createdate",
+  dt.updateuser "d_updateuser",
+  dt.updatedate "d_updatedate"
+
+FROM tb_sl_bl_export a
+
+LEFT JOIN vw_ma_code_delivery_sale_type b
+  ON b.code = a.sale_type
+LEFT JOIN vw_ma_code_sale_process_type c
+  ON c.code = a.sale_proc_type
+LEFT JOIN vw_cm_usermaster d
+  ON d.UID = a.manager_id
+LEFT JOIN tb_cm_dept e
+  ON e.DEPTCD = a.dept_cd
+LEFT JOIN tb_ma_wh f
+  ON f.wh_cd = a.wh_cd
+LEFT JOIN vw_ma_code_export_type g
+  ON g.code = a.export_type
+LEFT JOIN tb_ma_client h
+  ON h.cust_item_cd = a.cust_cd
+  AND h.comp_cd = a.comp_cd
+  AND h.factory_cd = a.factory_cd
+LEFT JOIN tb_sl_bl_export_detail dt
+  ON a.bl_export_cd = dt.bl_export_cd
+LEFT JOIN vw_ma_code_sl_progress_status ps
+  ON ps.code = dt.progress_status
+LEFT JOIN vw_ma_item it
+  ON dt.item_cd = it.item_cd
+  
+ WHERE 
+  (isnull(a.use_yn,'Y') = 'Y')
+  and (isnull(dt.use_yn,'Y') = 'Y')
+  and (a.bl_export_cd like concat('%', {bl_export_cd_search}, '%')  or isnull({bl_export_cd_search}, '') = '' )
+  and (isnull({fromdt},'') = '' or a.delivery_date >= {fromdt})
+  and (isnull({todt},'') = '' or a.delivery_date <= {todt})
+  and (isnull({sale_type_search},'') = '' or a.sale_type = {sale_type_search})
+  and (isnull({sale_proc_type_search},'') = '' or a.sale_proc_type = {sale_proc_type_search})
+  and (isnull({manager_search},'') = '' or a.manager_id = {manager_search})
+  and (isnull({dept_search},'') = '' or a.dept_cd = {dept_search})
+  and (isnull({export_type_search},'') = '' or a.export_type = {export_type_search})
+  and (a.project_cd like concat('%', {project_cd_search}, '%')  or isnull({project_cd_search}, '') = '' )
+  and (isnull({cust_ser},'') = '' or h.cust_nm like concat('%', {cust_ser}, '%'))
+  order by a.createdate desc;  

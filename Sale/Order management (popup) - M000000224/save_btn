@@ -1,0 +1,13 @@
+var gd11 = grid1_1.getRows();
+var save_flag = true;
+if (gd11.length === 0) save_flag = false;
+if(!save_flag){
+    msg("품목을 추가하십시오!", null, "N");
+    JSRETURN = false;
+}
+
+const have_tax = $("#" + itmobj1["have_tax"]).val();
+if (have_tax === "") {
+        msg("VAT 선택해주세요!", null, "N");
+        JSRETURN = false;
+}

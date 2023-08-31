@@ -1,0 +1,7 @@
+var time = new Date();
+var alo = moment(time).isoWeekday(1);
+$(`#${itmobj1["fromdt"]}`).val(alo.format("YYYY-MM-DD"));
+
+$("#search_btn").trigger("click");
+SetExcelDownloadAll();
+SetExcelUploadAjax();

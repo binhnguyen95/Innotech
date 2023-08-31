@@ -1,0 +1,154 @@
+SetExcelUploadAjax();
+$("#search_btn").on("click", function() {
+    grid1_1.clear();
+});
+
+const today = moment();
+const lastDay = today.subtract("months").endOf("month").format("YYYY-MM-DD");
+$(`#${itmobj1["fromdt"]}`).val(moment().format("YYYY-MM-01"));
+$(`#${itmobj1["todt"]}`).val(lastDay);
+
+$("#search_btn").trigger("click");
+$("#save_btn").hide();
+$("#del_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+$("#detail-addrow").hide();
+$("#detail-delrow").hide();
+
+//get dept_cd current account
+$("#DUMMY10").val("");
+var data = {};
+data.type = "cust_btn10";
+data.menucode = "M000000221";
+data.UID = $("#UID").val();
+
+$.ajax({
+  type: "POST",
+  url: "/ajax.do",
+  data: data,
+  success: function (response, status, request) {
+    if (status === "success") {
+      $("#DUMMY10").val(response.trim());
+    }
+  },
+  error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+grid1.on("dblclick", function (ev) {
+  // 그리드 숫자 더블클릭 시 수정창 열리기
+  if (nvl(ev.rowKey + "", "") != "") {
+    grid1.check(ev.rowKey);
+    $("#cust_btn2").trigger("click");
+  }
+});
+
+$("#reset_btn").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn1").on("click", function () {
+  $("#DUMMY1").val("");
+  $("#DUMMY2").val("");
+  $("#DUMMY3").val("");
+});
+$("#cust_btn2").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  if (gd1.length == 1) {
+    $("#DUMMY1").val(gd1[0][itmobj1["comp_cd"]]);
+    $("#DUMMY2").val(gd1[0][itmobj1["factory_cd"]]);
+    $("#DUMMY3").val(gd1[0][itmobj1["in_cd"]]);
+  }
+});
+//check grid1 auto check grid1_1
+grid1.on("check", function(event) {
+    setTimeout(function() {
+        let gd11 = grid1_1.getRows();
+        console.log(gd11)
+        if ( gd11.length > 0 ) {
+            for (let i = 0; i <= gd11.length; i++) {
+                if (gd11[i][itmobj2["progress_status"]] !== "completed") {
+                    grid1_1.check(i);
+                }
+            }
+        }
+    }, 500);
+})
+//jump to handle stock in
+$("#cust_btn3").on("click", function () {
+  var gd1 = grid1.getCheckedRows();
+  var gd11 = grid1_1.getCheckedRows();
+  if (gd1.length === 1 && gd11.length > 0) {
+    let gd1Convert = [];
+    for (let i = 0; i < gd1.length; i++) {
+      let obj = {};
+      obj.comp_cd = gd1[i][itmobj1["comp_cd"]];
+      obj.factory_cd = gd1[i][itmobj1["factory_cd"]];
+      obj.in_cd = gd1[i][itmobj1["in_cd"]];
+      obj.request_cd = gd1[i][itmobj1["request_cd"]];
+      obj.order_cd = gd1[i][itmobj1["order_cd"]];
+      obj.project_cd = gd1[i][itmobj1["project_cd"]];
+      obj.request_type = gd1[i][itmobj1["request_type"]];
+      obj.sale_type = gd1[i][itmobj1["sale_type"]];
+      obj.have_tax = gd1[i][itmobj1["have_tax"]];
+      obj.in_date = gd1[i][itmobj1["in_date"]];
+      obj.wh_cd = gd1[i][itmobj1["wh_cd"]];
+      gd1Convert.push(obj);
+    }
+
+    let gd11Convert = [];
+    for (let i = 0; i < gd11.length; i++) {
+      if (nvl(gd11[i][itmobj2["progress_qty"]], 0) !== 0 && (+nvl(gd11[i][itmobj2["in_qty"]],0) - +nvl(gd11[i][itmobj2["progress_qty"]],0)) <= 0) {
+        msg(`데이터가 완성되었습니다.`, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+      }
+      let obj = {};
+      obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
+      obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
+      obj.request_cd = gd11[i][itmobj2["request_cd"]];
+      obj.request_seq = gd11[i][itmobj2["request_seq"]];
+      obj.order_cd = gd11[i][itmobj2["order_cd"]];
+      obj.order_seq = gd11[i][itmobj2["order_seq"]];
+      obj.in_cd = gd11[i][itmobj2["in_cd"]];
+      obj.item_type_nm = gd11[i][itmobj2["item_type_nm"]];
+      obj.in_seq = gd11[i][itmobj2["in_seq"]];
+      obj.item_cd = gd11[i][itmobj2["item_cd"]];
+      obj.item_no = gd11[i][itmobj2["item_no"]];
+      obj.item_nm = gd11[i][itmobj2["item_nm"]];
+      obj.spec = gd11[i][itmobj2["spec"]];
+      obj.unit = gd11[i][itmobj2["unit"]];
+      obj.wh_cd = gd11[i][itmobj2["wh_cd"]];
+      obj.wh_nm = gd11[i][itmobj2["wh_nm"]];
+      obj.supplier_cd = gd11[i][itmobj2["supplier_cd"]];
+      obj.supplier_nm = gd11[i][itmobj2["supplier_nm"]];
+      obj.order_qty = +nvl(gd11[i][itmobj2["in_qty"]],0) - +nvl(gd11[i][itmobj2["progress_qty"]],0);
+      obj.in_price = gd11[i][itmobj2["in_price"]];
+      obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
+      obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
+      obj.in_amt = gd11[i][itmobj2["in_amt"]];
+      gd11Convert.push(obj);
+    }
+    localStorage.setItem("inGrid1", JSON.stringify(gd1Convert));
+    localStorage.setItem("inGrid11", JSON.stringify(gd11Convert));
+    parent.$(".right-menu1 #M000000254_li .ui-closable-tab").trigger("click");
+    parent.$(".left-menu #M000000254").trigger("click");
+  } else {
+    msg("품목을 선택하십시오!", null, "N");
+    if ($("#msgconfirm").is(":visible")) {
+      $("#msgconfirm").dialog("destroy");
+    }
+    return false;
+  }
+});
+
+//handle jump from request
+let orderGrid1 = localStorage.getItem("orderGrid1");
+let orderGrid11 = localStorage.getItem("orderGrid11");
+if (orderGrid1 && orderGrid11) {
+  $("#cust_btn1").trigger("click");
+}

@@ -1,0 +1,394 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.time.LocalDate"%>
+<%@page import="java.time.format.DateTimeFormatter"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
+    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
+    
+    String sLine = "";
+    String sText = "";
+    String user = "sa";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    //get now
+    LocalDate today = LocalDate.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMM");
+    String formattedDateNow = today.format(formatter);
+    String errorMessage = "";
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+            }
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                String wh_cd = "";
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i>0) break;
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_pur_order", list.get(i));
+                        
+                        if (!row.get("order_cd").equals("NULL")){
+                            //delete order
+                            sql =  " update tb_pur_order set use_yn = 'N' where order_cd = " + row.get("order_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            
+                            logger.info("update tb_pur_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                            //delete order detail
+                            sql = " select comp_cd, factory_cd, order_cd, order_seq, request_cd, request_seq, order_qty from tb_pur_order_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + row.get("order_cd");
+                            List<Map<String, Object>> list1 = new ArrayList<>();
+                            List<Map<String, Object>> list2 = new ArrayList<>();
+                            list1 = selectAllQuery(conn, sql);
+                            for(int i1 = 0 ; i1 < list1.size() ; i1 ++){
+                                sql =  " delete from tb_pur_order_detail where order_cd = '" + list1.get(i1).get("order_cd") + "' and order_seq = " + list1.get(i1).get("order_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                
+                                logger.info("delete into tb_pur_order_detail");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                            
+                                //update order
+                                if (list1.get(i1).get("request_cd") != null && list1.get(i1).get("request_seq") != null) {
+                                    sql = " select order_cd, order_seq from tb_pur_order_detail where request_cd = '" + list1.get(i1).get("request_cd") + "' and request_seq = " + list1.get(i1).get("request_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                    list2 = selectAllQuery(conn, sql);
+                                    
+                                    sql = " update tb_pur_request_detail set progress_qty = progress_qty - " + list1.get(i1).get("order_qty") + " , progress_status ='" + (list2.size() > 0 ? "processing" : "new") + "' where request_cd = '" + list1.get(i1).get("request_cd") + "' and request_seq = " + list1.get(i1).get("request_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                    logger.info("update into tb_pur_request_detail");
+                                    logger.info(sql);
+                                    pstmt = conn.prepareStatement(sql);
+                                    pstmt.executeUpdate();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                PassText = "삭제되었습니다";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {
+                Gson gson = new Gson();
+                if (header != null) {
+                    String wh_cd = null;
+                    String wh_name = "";
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        sql = "select comp_cd, factory_cd, order_cd, order_seq, item_cd, order_qty, progress_qty, order_amt from tb_pur_order_detail where isnull(use_yn,'Y') = 'Y' and order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        List<Map<String, Object>> orders = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < orders.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_pur_order_detail", orders.get(j));
+                            
+                            //get wh
+                            sql = "select TOP 1 wh_cd from tb_ma_wh where wh_type = 'WH_TYPE2' and use_yn = 'Y' and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            wh_cd = selectQuery(conn, sql);
+                            wh_cd = wh_cd != null ? wh_cd : "";
+                            sql = "select TOP 1 wh_nm from tb_ma_wh where wh_type = 'WH_TYPE2' and use_yn = 'Y' and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            wh_name = selectQuery(conn, sql);
+                            
+                            //update detail
+                            sql = "update tb_pur_order_detail set progress_status = 'confirmed' where order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                            logger.info("update tb_pur_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                            
+
+                        }
+                    }
+                    //handle error
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success.";
+                        jsonObj.put("result", PassText);
+                        jsonObj.put("wh_name", wh_name);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                    //end
+                }
+            }
+            
+            if ( type.equals("cust_btn5") ) {
+                Gson gson = new Gson();
+                if (header != null) {
+                    String wh_cd = null;
+                    String wh_name = "";
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        sql = "select comp_cd, factory_cd, order_cd, order_seq, item_cd, order_qty, progress_qty, order_amt from tb_pur_order_detail where isnull(use_yn,'Y') = 'Y' and order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        List<Map<String, Object>> orders = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < orders.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_pur_order_detail", orders.get(j));
+                            
+                            //get wh
+                            sql = "select TOP 1 wh_cd from tb_ma_wh where wh_type = 'WH_TYPE2' and use_yn = 'Y' and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            wh_cd = selectQuery(conn, sql);
+                            wh_cd = wh_cd != null ? wh_cd : "";
+                            sql = "select TOP 1 wh_nm from tb_ma_wh where wh_type = 'WH_TYPE2' and use_yn = 'Y' and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                            wh_name = selectQuery(conn, sql);
+                            
+                            //update detail
+                            sql = "update tb_pur_order_detail set progress_status = 'new' where order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                            logger.info("update tb_pur_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                            
+                            
+                        }
+                    }
+                    //handle error
+                    if (!errorMessage.equals("")) {
+                        jsonObj.put("result", errorMessage);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                    } else {
+                        PassText = "Success.";
+                        jsonObj.put("result", PassText);
+                        jsonObj.put("wh_name", wh_name);
+                        PassText = jsonObj.toString();
+                        out.write(PassText);
+                        out.flush();
+                        conn.commit();
+                        logger.info("!!!!COMMIT DONE!!!!");
+                    }
+                    //end
+                }
+            }
+            
+            if ( type.equals("excel") ) {
+                Gson gson = new Gson();
+                
+                String UID = (String)request.getParameter("UID");
+                
+                java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+                java.util.Date time = new java.util.Date();
+                String datetime = dateFormat.format(time);
+                
+                int CNT = 0;
+                
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_pur_order", list.get(i));
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_pur_order where order_cd = " + row.get("order_cd") + " ");
+                        
+                        boolean isInsert = false;
+                        if(cnt.equals("0")){
+                            isInsert = true;
+                            row.put("order_cd", "'" + generateCode(conn, "CC000008") + "'");
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        row.put("comp_cd", "'in'");
+                        row.put("factory_cd", "'in0001'");
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                if((key.equals("tax_rate") || key.equals("profit_rate")) && value.equals("NULL")) value = "0";
+                                if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                sqlCoumns += key;
+                                if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                sqlValues += value;
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("order_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+                        if (isInsert){
+                            sql =  " insert into tb_pur_order (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_pur_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }else{
+                            sql = " update tb_pur_order set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + row.get("order_cd") + " ";
+                            logger.info("update tb_pur_order");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        CNT++;
+                    }
+                }
+                
+                if(detail != null){
+                    List<Map> list = gson.fromJson(detail, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_pur_order_detail", list.get(i));
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_pur_order_detail where order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq") + " ");
+                        
+                        boolean isInsert = false;
+                        if(cnt.equals("0")){
+                            isInsert = true;
+                            row.put("createuser", "'" + UID + "'");
+                            row.put("createdate", "'" + datetime + "'");
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        else {
+                            row.put("updateuser", "'" + UID + "'");
+                            row.put("updatedate", "'" + datetime + "'");
+                        }
+                        row.put("comp_cd", "'in'");
+                        row.put("factory_cd", "'in0001'");
+                        
+                        if (isInsert){
+                            sql = "  select isnull(max(order_seq), 0) + 1 as order_seq from tb_pur_order_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + row.get("order_cd") + "  ";
+                            row.put("order_seq", getSOrder(conn, sql));
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("progress_status")) {
+                                        sqlValues += "'new'";
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                }
+                            }
+                            
+                            sql =  " insert into tb_pur_order_detail (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_pur_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }else{
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {
+                                    // 기본키 제외 duplicate sql 만들기
+                                    String value = row.get(key);
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("order_cd") && !key.equals("order_seq") && !key.equals("progress_status") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            sql = " update tb_pur_order_detail set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and order_cd = " + row.get("order_cd") + " and order_seq = " + row.get("order_seq");
+                            logger.info("update tb_pur_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        CNT++;
+                    }
+                }
+                
+                jsonObj.put("result", "Y");
+                jsonObj.put("CNT", CNT);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

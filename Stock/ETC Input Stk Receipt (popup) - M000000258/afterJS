@@ -1,0 +1,40 @@
+var gd1 = grid1.getRows();
+if ( gd1.length > 0 ) {
+    grid1.check(0);
+    setTimeout(function() {
+        if (!localStorage.getItem("in_stock_grid11") && grid1_1.getRows().length > 0) {
+            localStorage.setItem("in_stock_grid11", JSON.stringify(grid1_1.getRows()));
+        }
+    },500)
+}
+
+var gd11 = grid1_1.getRows();
+if ( gd11.length > 0 ) {
+    for (let i = 0; i <= gd11.length; i++) {
+        if (gd11[i][itmobj2["in_out_status"]] && gd11[i][itmobj2["in_out_status"]] !== "new") {
+            $("#del_btn").hide();
+            $("#detail-delrow").hide();
+            break;
+        }
+    }
+}
+
+var checkGd1 = grid1.getCheckedRows();
+var checkGd1Length = checkGd1.length;
+if ( checkGd1Length > 0 ) {
+    for (let i = 0; i < checkGd1Length; i++) {
+        if (nvl(checkGd1[i][itmobj1["in_req_cd"]], "") !== "") {
+            $("#detail-addrow").hide();
+            $("#" + itmobj1["wh_cd"]).prop("disabled", true);
+            $("#" + itmobj1["cust_cd"]).prop("disabled", true);
+            $("#" + itmobj1["in_req_ymd"]).prop("disabled", true);
+            break;
+        }
+    }
+}
+
+const in_stk_cd = $("#"+ itmobj1["in_stk_cd"]).val();
+if(in_stk_cd.length > 0){
+    $("#detail-addrow").hide();
+    $("#detail-delrow").hide();
+}

@@ -1,0 +1,125 @@
+SetExcelDownloadAll();
+SetExcelUploadAjaxCustom();
+$("#search_btn").trigger("click");
+$("#cust_btn2").hide();
+$("#save_btn").hide();
+$("#header-addrow").hide();
+$("#header-delrow").hide();
+
+grid1.on("dblclick",function(ev){
+    // 그리드 숫자 더블클릭 시 수정창 열리기
+    if(nvl(ev.rowKey + "", "") != ""){
+        grid1.check(ev.rowKey);
+        $("#cust_btn2").trigger("click");
+    }
+    
+});
+
+$("#cust_btn1").on("click", function(){
+    $("#DUMMY1").val("");
+    $("#DUMMY2").val("");
+    $("#DUMMY3").val("");
+});
+
+$("#cust_btn2").on("click", function(){
+    var gd1 = grid1.getCheckedRows();
+    if(gd1.length == 1){
+        $("#DUMMY1").val("in");
+        $("#DUMMY2").val("in0001");
+        $("#DUMMY3").val(gd1[0][itmobj1["item_cd"]]);
+    }
+});
+
+$(window).on("resize", function(){
+   var height = $(".right-content").height() - ($(".ui-widget-header").height() + $(".editer-content1").height() +250);
+    grid1.setHeight(height);
+});
+
+
+
+
+function SetExcelUploadAjaxCustom() {
+    $("#ExcelModal_Save").parent().append("<button class=\"menuadd-btn\" id=\"ExcelModal_Save_Check\">적용</button>");
+    $("#ExcelModal_Save").hide();
+    
+    $("#ExcelModal_Save_Check").click(function(){
+        var excelData = JSON.parse($("#EXCELJSON").val());
+        
+        var cols = grid_excelup.getColumns();
+        
+        var dataArr = [];
+        
+        for(var i = 0; i < excelData.length; i++) {
+            var obj = {};
+            
+            Object.keys(excelData[i]).forEach(function(key){
+                var value = ConvertSystemSourcetoHtml(excelData[i][key]);
+                for(var col=0; col<cols.length; col++) {
+                    var id = cols[col].name;
+                    if(id == key) {
+                        var name = cols[col].targetcode;
+                        obj[name] = value;
+                        break;
+                    }
+                }
+            });
+            
+            dataArr.push(obj);
+        }
+        
+        var dataArrType = "header";
+        if($("#EXCELUP_VAL").val() == "DETAIL") {
+            dataArrType = "detail";
+        }
+        else if($("#EXCELUP_VAL").val() == "SDETAIL") {
+            dataArrType = "sdetail";
+        }
+        
+        var data = {};
+        data.LANGTYPE = $("#lang").val();
+        data.SYSTEMCODE = $("#systemcode").val();
+        data.MENUCODE = $("#menucode").val();
+        data.type = "excel";
+        data.UID = $("#UID").val();
+        
+        var postdata = "data=" + encodeURIComponent(JSON.stringify(data));
+        postdata += "&type=excel";
+        postdata += "&UID=" + $("#UID").val();
+        postdata += "&menucode=" + $("#menucode").val();
+        postdata += "&" + dataArrType + "=" + encodeURIComponent(JSON.stringify(dataArr));
+        
+        $.ajax({
+            type: "post",
+            url: "/ajax.do",
+            data: postdata,
+            success: function(e, t, i) {
+                
+                // console.log(e.trim());
+                
+                // if(nvl(JSON.parse(e.trim()).error, "") != ""){
+                //     msg(JSON.parse(e.trim()).error, null, "N");
+                // }
+                
+                if(e.trim() != "Y"){
+                    
+                    msg(JSON.parse(e.trim()).result, null, "N");
+                    return;
+                }
+                
+                var a = JSON.parse(e),
+                    e = a.result,
+                    a = a.CNT;
+                    
+                "Y" == e ? ($("#EXCELJSON").val(""), $("#ExcelModal").dialog("destroy"), "Y" == $("#SAVETYPE").val() && msg(langObj.JS0000003, null, "N")) : (null != a && "" != a && grid_excelup.focusAt(a, "0", !0), null != e && "" != e ? (e = decodeURIComponent(e).replace(/\+/g, " "), msg(langObj.JS0000004, e, "Y")) : msg(langObj.JS0000004, null, "Y")), setTimeout(function() {
+                    "Y" == $("#LOADYN").val() && $.isLoading("hide")
+                }, 10)
+            },
+            error: function(e, t, i) {
+                var a = e.responseText;
+                null != a && "" != a && a.indexOf("<!DOCTYPE html><html>") < 0 && (a = decodeURIComponent(e.responseText)), msghtml(langObj.JS0000004, a, "Y"), setTimeout(function() {
+                    "Y" == $("#LOADYN").val() && $.isLoading("hide")
+                }, 10)
+            }
+        });
+    });
+}
