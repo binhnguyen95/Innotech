@@ -8,6 +8,10 @@ SetExcelUploadAjax();
 
 $(".detail-exceldown").unbind("click");
 $(".detail-exceldown").click(function() {
+    const listArrHideInExcel = ["SIMBIZSETTYPE", "ITEM000014321", "ITEM000014501", "ITEM000014308", "ITEM000014348", "ITEM000014353", "ITEM000014355", "ITEM000014356", "ITEM000014310", "ITEM000014343", "ITEM000014309", "ITEM000014311", "ITEM000014320", "ITEM000014508",
+    "ITEM000014539", "ITEM000014312", "ITEM000014313", "ITEM000014314", "ITEM000014509", "ITEM000014510", "ITEM000014316", "ITEM000014511", "ITEM000014317", "ITEM000014317", "ITEM000014318", "ITEM000014322", "ITEM000014323", "ITEM000014324", "ITEM000014326",
+    "ITEM000014328", "ITEM000014331", "ITEM000014332", "ITEM000014333", "ITEM000014334", "ITEM000014336", "ITEM000014337", "ITEM000014338", "ITEM000014339", "ITEM000014340", "ITEM000014485", "ITEM000014726", "ITEM000014315", "ITEM000014486", "ITEM000014507",
+    "ITEM000014487", "ITEM000014489", "ITEM000014493", "ITEM000014500", "ITEM000014499", "ITEM000014502", "ITEM000014503", "ITEM000016169", "ITEM000016170"]
      var e = [],
         t = grid1.getColumns(),
         i = [];
@@ -69,18 +73,13 @@ $(".detail-exceldown").click(function() {
     m = I.MENUCODE = a;
     
     //hiden col not use when download excel
+    console.log(p)
     const p_convert = p.filter(item => {
-    return item.title != "progress_status_nm" && item.title != "have_tax" && item.title != "use_yn" && item.title != "order_no" && item.title != "equip_yn" && item.title != "cust_delivery_nm" && item.title != "project_ser" && item.title != "fromdt" 
-    && item.title != "todt" && item.title != "delivery_cd_ser" && item.title != "delivery_cd" && item.title != "code_value" && item.title != "delivery_type_ser" && item.title != "sale_type_ser"
-    && item.title != "code_value" && item.title != "sale_proc_type_ser" && item.title != "USERNAME" && item.title != "dept_ser" && item.title != "DEPTNM" && item.title != "comp_cd"
-    && item.title != "order_cd" && item.title != "factory_cd" && item.title != "delivery_type" && item.title != "delivery_type_nm" && item.title != "sale_type" && item.title != "sale_proc_type"
-    && item.title != "order_date" && item.title != "delivery_date" && item.title != "delivery_address" && item.title != "wh_cd" && item.title != "wh_nm" && item.title != "cust_cd" && item.title != "cust_manager"
-    && item.title != "cust_phone_no" && item.title != "cust_email" && item.title != "dept_cd" && item.title != "manager_id" && item.title != "delivery_seq" && item.title != "cust_ser" && item.title != "manager_ser"
-    && item.title != "sale_seq" && item.title != "delivery_cd" && item.title != "item_cd" && item.title != "item_no" && item.title != "p_item_cd" && item.title != "progress_status" && item.title != "progress_qty"
-    && item.title != "delivery_qty" && item.title != "memo_detail" && item.title != "SIMBIZSETTYPE"
-    
-    && item.title != "진행상태" && item.title != "프로젝 트코드" && item.title != "매출일자(시작)" && item.title != "매출일자(종료)" && item.title != "납품번호" && item.title != "납품번호" && item.title != "납품구분" && item.title != "판매 구분"
-    && item.title != "매출 구분" && item.title != "부서" && item.title != "고객 사" && item.title != "담당자" && item.title != "품목비고" && item.title != "진행수량" 
+    if(item.name == "SCELLTP"){
+            return false
+        }else{
+            return !listArrHideInExcel.includes(item.name)
+        }
     
     })
     
@@ -289,6 +288,9 @@ function handleConfirm() {
     dataPost.type = "handle_confirm";
     dataPost.menucode = "M000002375";
     dataPost.dateInput = $(`input[name="date_input"]`).val();
+    dataPost.comp_cd = $("#" + itmobj1["comp_cd"]).val();
+    dataPost.factory_cd = $("#" + itmobj1["factory_cd"]).val();
+    dataPost.delivery_date = $("#" + itmobj1["delivery_date"]).val();
     dataPost.header = JSON.stringify(convertRows);
     $.ajax({
       type: "POST",
@@ -317,6 +319,94 @@ function handleConfirm() {
       error: function (xmlHttpRequest, txtStatus, errorThrown) {},
     });
 }
+
+$("#cust_btn4").on("click", function () {
+    const fromdt = $("#" + itmobj1["fromdt"]).val()
+    const todt = $("#" + itmobj1["todt"]).val()
+    var cols = grid1.getColumns();
+    var checkedRows = grid1.getCheckedRows();
+    let flag = true;
+    let message = "";
+    
+    if (checkedRows.length === 0) {
+        flag = false;
+        message = "품목을 추가하십시오!";
+    }
+    
+    for (let i = 0; i < checkedRows.length; i++) {
+        if (checkedRows[i][itmobj1["progress_status"]] != "interface") {
+            flag = false;
+            message = "인터페이스 상태만 전표취소 가능합니다!";
+            break;
+        }
+    }
+
+
+    var convertRows = [];
+
+    for(var i = 0; i < checkedRows.length; i++) {
+        var obj = {};
+        
+        Object.keys(checkedRows[i]).forEach(function(key){
+            var value = ConvertSystemSourcetoHtml(checkedRows[i][key]);
+            for(var col=0; col<cols.length; col++) {
+                var id = cols[col].name;
+                if(id == key) {
+                    var name = cols[col].targetcode;
+                    obj[name] = value;
+                    break;
+                }
+            }
+        });
+        
+        convertRows.push(obj);
+    }
+    
+    if (flag === false) {
+        msg(message, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+    } else {
+        var dataPost = {};
+        dataPost.type = "cust_btn4";
+        dataPost.menucode = $("#menucode").val();
+        dataPost.comp_cd = $("#" + itmobj1["comp_cd"]).val();
+        dataPost.factory_cd = $("#" + itmobj1["factory_cd"]).val();
+        dataPost.delivery_date = $("#" + itmobj1["delivery_date"]).val();
+        dataPost.header = JSON.stringify(convertRows);
+        $.ajax({
+          type: "POST",
+          url: "/ajax.do",
+          data: dataPost,
+          success: function (response, status, request) {
+            if (status === "success") {
+                const data = JSON.parse(response.trim());
+                if (data.result !== undefined) {
+                    msg(data.result, null, "N");
+                    if ($("#msgconfirm").is(":visible")) {
+                      $("#msgconfirm").dialog("destroy");
+                    }
+                    $(`#${itmobj1["fromdt"]}`).val(fromdt);
+                    $(`#${itmobj1["todt"]}`).val(todt);
+                    $("#search_btn").trigger("click");
+                    return false;
+                }
+                if (data.error !== undefined) {
+                    msg(data.error, null, "N");
+                    if ($("#msgconfirm").is(":visible")) {
+                      $("#msgconfirm").dialog("destroy");
+                    }
+                    return false;
+                }
+            }
+          },
+          error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+        });
+    }
+    
+});
 
 
 $(window).on("resize", function(){
