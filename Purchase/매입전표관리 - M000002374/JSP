@@ -20,14 +20,9 @@
     String sdetail = (String)request.getParameter("sdetail");
     String type = (String)request.getParameter("type");
     String UID = (String)request.getParameter("UID");
-
-    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
     
     String sLine = "";
     String sText = "";
-    String user = "sa";
-    String password = "tlaqlwm2174";
 
     JSONObject jsonObj = new JSONObject();
     String PassText = null;
@@ -36,6 +31,10 @@
     java.sql.PreparedStatement pstmt = null;
     ResultSet rs = null;
     Statement stmt = null;
+    
+    String comp_cd = (String)request.getParameter("comp_cd");
+    String factory_cd = (String)request.getParameter("factory_cd");
+    String in_date = (String)request.getParameter("in_date");
 
 
     try {
@@ -67,6 +66,7 @@
                     //get ctDeal
                     String ctDeal = (String)request.getParameter("ctDeal");
                     
+                    
                     // get varConv
                     String varConv = "";
                     List<Map> list = gson.fromJson(header, List.class);
@@ -88,19 +88,22 @@
                             varConv += list.get(i).get("h_in_cd").toString() + "|" + list.get(i).get("d_h_in_seq").toString() + ",";
                         }
                     }
+
                     
-                    /*out.write("pType: " + pType + " |dateInput: " + dateInput + " |deptCd: " + deptCd + " |UID: " + UID + " |varConv: " + varConv + " |ctDeal: " + ctDeal + " ");
-                    if (conn != null) conn.close();
-                    if (pstmt != null) pstmt.close();*/
+                    String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = '" + comp_cd + "' AND factory_cd = '" + factory_cd + "' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = '" + in_date.replace("-", "").substring(0, 6) + "'");
                     
-                    String[] returnValueHandleCallTheZone = new String[2];
-                    returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, dateInput, deptCd, UID, varConv, ctDeal);
-                    
-                    if (returnValueHandleCallTheZone[0] == null) {
-                        throw new Exception("pType: " + pType + "|dateInput: " + dateInput + "|deptCd: " + deptCd + "|UID: " + UID + "|varConv: " + varConv + "|ctDeal: " + ctDeal + " 500 Internal Server Error!");
-                    }
-                    if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
-                        throw new Exception(returnValueHandleCallTheZone[1]);
+                    if (Integer.parseInt(checkDateEnd) > 0) {
+                        throw new Exception("재고마감처리가 완료되어서 처리가 불가합니다!");
+                    } else {
+                        String[] returnValueHandleCallTheZone = new String[2];
+                        returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, dateInput, deptCd, UID, varConv, ctDeal);
+                        
+                        if (returnValueHandleCallTheZone[0] == null) {
+                            throw new Exception("pType: " + pType + "|dateInput: " + dateInput + "|deptCd: " + deptCd + "|UID: " + UID + "|varConv: " + varConv + "|ctDeal: " + ctDeal + " 500 Internal Server Error!");
+                        }
+                        if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
+                            throw new Exception(returnValueHandleCallTheZone[1]);
+                        }
                     }
                 }
                 PassText = "저장 되었습니다.";
@@ -113,13 +116,10 @@
             }
             
             if (type.equals("get_ctdeal")) {
-                String comp_cd = "in";
-                String factory_cd = "in0001";
-                    
-                    sql = "select code, code_value ";
-                    sql += "from tb_ma_code where code_id = 'ct_deal' and use_yn = 'Y' "  ;
-                    List<Map> list = selectAllQuery(conn, sql);
-                    out.write(new Gson().toJson(list));
+                sql = "select code, code_value ";
+                sql += "from tb_ma_code where code_id = 'ct_deal' and use_yn = 'Y' "  ;
+                List<Map> list = selectAllQuery(conn, sql);
+                out.write(new Gson().toJson(list));
             }
 
             
@@ -160,14 +160,21 @@
                         }
                     }
                     
-                    String[] returnValueHandleCallTheZone = new String[2];
-                    returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, billDate, deptCd, UID, varConv, "");
-                    if (returnValueHandleCallTheZone[0] == null) {
-                        throw new Exception("pType: " + pType + "|billDate: " + billDate + "|deptCd: " + deptCd + "|UID: " + UID + "|varConv: " + varConv + " 500 Internal Server Error!");
+                    String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = '" + comp_cd + "' AND factory_cd = '" + factory_cd + "' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = '" + in_date.replace("-", "").substring(0, 6) + "'");
+                    
+                    if (Integer.parseInt(checkDateEnd) > 0) {
+                        throw new Exception("재고마감처리가 완료되어서 처리가 불가합니다!");
+                    } else {
+                        String[] returnValueHandleCallTheZone = new String[2];
+                        returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, billDate, deptCd, UID, varConv, "");
+                        if (returnValueHandleCallTheZone[0] == null) {
+                            throw new Exception("pType: " + pType + "|billDate: " + billDate + "|deptCd: " + deptCd + "|UID: " + UID + "|varConv: " + varConv + " 500 Internal Server Error!");
+                        }
+                        if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
+                            throw new Exception(returnValueHandleCallTheZone[1]);
+                        }
                     }
-                    if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
-                        throw new Exception(returnValueHandleCallTheZone[1]);
-                    }
+                    
                 }
                 PassText = "저장 되었습니다.";
                 jsonObj.put("result", PassText);
@@ -189,8 +196,17 @@
             if (pstmt != null) pstmt.close();
         }
     } catch (Exception e) {
-        out.write("error : " + e.getMessage() + "\n" + sql);
+        if (e.getMessage().equals("재고마감처리가 완료되어서 처리가 불가합니다!")){
+            PassText = "재고마감처리가 완료되어서 처리가 불가합니다!";
+        } else {
+            out.write("error : " + e.getMessage() + "\n" + sql);
+        }
+        
         if (conn != null) conn.close();
         if (pstmt != null) pstmt.close();
+        
+        jsonObj.put("result", PassText);
+        PassText = jsonObj.toString();
+        out.write(PassText);
     }
 %>

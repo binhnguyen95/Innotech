@@ -111,9 +111,12 @@ $(".detail-exceldown").click(function() {
 
     
     && item.title != "매입일자(시작)" && item.title != "매입일자(종료)" && item.title != "프로젝 트코드" && item.title != "h_in_cd_ser" && item.title != "요청구분" && item.title != "구매 구분" && item.title != "담당자" && item.title != "부서"
-    && item.title != "매입 처" && item.title != "진행상태"  && item.title != "item_ser"
-
+    && item.title != "매입 처"  && item.title != "item_ser"
+    && item.name != "ITEM000014504" && item.name != "ITEM000014302" && item.name != "ITEM000014299" && item.name != "ITEM000014300" && item.name != "ITEM000014303" && item.name != "ITEM000014724" && item.name != "ITEM000016173" && item.name != "ITEM000016174"
+    && item.name != "ITEM000014304" && item.name != "ITEM000014399" && item.name != "ITEM000017229" && item.name != "ITEM000015495" && item.name != "ITEM000017230"  && item.name != "ITEM000017231" 
+        
     })
+
     
     "" != menuNmobj[a] && null != menuNmobj[a] && (m = menuNmobj[a]), I.MENUNAME = encodeURIComponent(m), I.xlsData = encodeURIComponent(JSON.stringify(grid1.getRows())), I.colData = encodeURIComponent(JSON.stringify(p_convert)), I.compData1 = encodeURIComponent(JSON.stringify(_)), I.compData2 = encodeURIComponent(JSON.stringify(N)), I.compData3 = encodeURIComponent(JSON.stringify(D)), I.compData4 = encodeURIComponent(JSON.stringify(O)), $.fileDownload("bigXlsxDownload.do", {
         httpMethod: "POST",
@@ -130,6 +133,8 @@ $(".detail-exceldown").click(function() {
         }
     })
 });
+
+
 
 //get dept_cd current account
 $("#DUMMY10").val("");
@@ -198,10 +203,12 @@ $("#cust_btn3").on("click", function () {
     const checkeds = grid1.getCheckedRows();
     let flag = true;
     let message = "";
+    
     if (checkeds.length === 0) {
         flag = false;
         message = "품목을 추가하십시오!";
     }
+    
     for (let i = 0; i < checkeds.length; i++) {
         if (checkeds[i][itmobj1["d_progress_status"]] != "new") {
             flag = false;
@@ -209,6 +216,7 @@ $("#cust_btn3").on("click", function () {
             break;
         }
     }
+    
     if (flag === false) {
         msg(message, null, "N");
         if ($("#msgconfirm").is(":visible")) {
@@ -336,8 +344,12 @@ function handleConfirm() {
     dataPost.menucode = "M000002374";
     dataPost.dateInput = $(`input[name="date_input"]`).val();
     dataPost.ctDeal = $(`#ct_deal`).find(":selected").val();
-                        
+    dataPost.comp_cd = $("#" + itmobj1["comp_cd"]).val()
+    dataPost.factory_cd = $("#" + itmobj1["factory_cd"]).val()
+    dataPost.in_date = $("#" + itmobj1["in_date"]).val()
+    
     dataPost.header = JSON.stringify(convertRows);
+    
     $.ajax({
       type: "POST",
       url: "/ajax.do",
@@ -345,6 +357,8 @@ function handleConfirm() {
       success: function (response, status, request) {
         if (status === "success") {
             const data = JSON.parse(response.trim());
+            $.isLoading("hide")
+            
             if (data.result !== undefined) {
                 msg(data.result, null, "N");
                 if ($("#msgconfirm").is(":visible")) {
@@ -355,7 +369,6 @@ function handleConfirm() {
                 $("#search_btn").trigger("click");
                 return false;
             }
-            
             
             if (data.error !== undefined) {
                 msg(data.error, null, "N");
@@ -368,9 +381,95 @@ function handleConfirm() {
       },
       error: function (xmlHttpRequest, txtStatus, errorThrown) {},
     });
-    
-    
 }
+
+$("#cust_btn4").on("click", function () {
+    const fromdt = $("#" + itmobj1["fromdt"]).val()
+    const todt = $("#" + itmobj1["todt"]).val()
+    var cols = grid1.getColumns();
+    var checkedRows = grid1.getCheckedRows();
+    let flag = true;
+    let message = "";
+    
+    if (checkedRows.length === 0) {
+        flag = false;
+        message = "품목을 추가하십시오!";
+    }
+    
+    for (let i = 0; i < checkedRows.length; i++) {
+        if (checkedRows[i][itmobj1["d_progress_status"]] != "interface") {
+            flag = false;
+            message = "인터페이스 상태만 전표취소 가능합니다!";
+            break;
+        }
+    }
+
+
+    var convertRows = [];
+
+    for(var i = 0; i < checkedRows.length; i++) {
+        var obj = {};
+        
+        Object.keys(checkedRows[i]).forEach(function(key){
+            var value = ConvertSystemSourcetoHtml(checkedRows[i][key]);
+            for(var col=0; col<cols.length; col++) {
+                var id = cols[col].name;
+                if(id == key) {
+                    var name = cols[col].targetcode;
+                    obj[name] = value;
+                    break;
+                }
+            }
+        });
+        
+        convertRows.push(obj);
+    }
+    
+    if (flag === false) {
+        msg(message, null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+    } else {
+        var dataPost = {};
+        dataPost.type = "cust_btn4";
+        dataPost.menucode = $("#menucode").val();
+        dataPost.comp_cd = $("#" + itmobj1["comp_cd"]).val()
+        dataPost.factory_cd = $("#" + itmobj1["factory_cd"]).val()
+        dataPost.in_date = $("#" + itmobj1["in_date"]).val()
+        dataPost.header = JSON.stringify(convertRows);
+        $.ajax({
+          type: "POST",
+          url: "/ajax.do",
+          data: dataPost,
+          success: function (response, status, request) {
+            if (status === "success") {
+                const data = JSON.parse(response.trim());
+                if (data.result !== undefined) {
+                    msg(data.result, null, "N");
+                    if ($("#msgconfirm").is(":visible")) {
+                      $("#msgconfirm").dialog("destroy");
+                    }
+                    $(`#${itmobj1["fromdt"]}`).val(fromdt);
+                    $(`#${itmobj1["todt"]}`).val(todt);
+                    $("#search_btn").trigger("click");
+                    return false;
+                }
+                if (data.error !== undefined) {
+                    msg(data.error, null, "N");
+                    if ($("#msgconfirm").is(":visible")) {
+                      $("#msgconfirm").dialog("destroy");
+                    }
+                    return false;
+                }
+            }
+          },
+          error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+        });
+    }
+    
+});
 
 
 
