@@ -1,0 +1,349 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+
+    String sLine = "";
+    String sText = "";
+
+
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+                Gson gson = new Gson();
+                String bl_export_cd = "";
+                String comp_cd = "in";
+                String factory_cd = "in0001";
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    boolean isInsert = true;
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i > 0) break;
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_bl_export", list.get(i));
+                        
+                        String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = " + row.get("comp_cd") + " AND factory_cd = " + row.get("factory_cd") + " AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = " + row.get("delivery_date").replace("-", "").substring(1, 7));
+                        
+                        if (Integer.parseInt(checkDateEnd) > 0) {
+                            throw new Exception("재고마감처리가 완료되어서 처리가 불가합니다!");
+                        } else {
+                            isInsert = row.get("bl_export_cd").equals("NULL");
+                            
+                            if(isInsert){
+                                row.put("bl_export_cd", "'" + generateCode(conn, "CC002077") + "'");
+                                row.put("use_yn","'Y'");
+                            }
+                            
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    sqlValues += value;
+                                    // 기본키 제외 duplicate sql 만들기
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("bl_export_cd") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            
+                            bl_export_cd = row.get("bl_export_cd");
+                            comp_cd = row.get("comp_cd");
+                            factory_cd = row.get("factory_cd");
+                            
+                            if (isInsert){
+                                sql =  " insert into tb_sl_bl_export (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                                logger.info("insert into tb_sl_bl_export");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                            }else{
+                                sql = " update tb_sl_bl_export set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and bl_export_cd = " + row.get("bl_export_cd") + " ";
+                                logger.info("update tb_sl_bl_export");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory("update", sql);
+                            }
+                        }
+                    }
+                }
+                
+                String bl_export_seqList[] = new String[0];
+                if (!bl_export_cd.equals("") && detail != null) {
+                    List<Map> list = gson.fromJson(detail, List.class);
+                    bl_export_seqList = new String[list.size()];
+                    
+                    boolean is_connect_delivery = false;
+                    int prev_sale_qty = 0;
+                    double delivery_progress_qty = 0.0;
+                    int delivery_qty = 0;
+                    String delivery_progress_status = "";
+                    
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        //clear sql statement
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_bl_export_detail", list.get(i));
+                        
+                        if(row.get("bl_export_seq").equals("NULL")){
+                            row.put("bl_export_cd", bl_export_cd);
+                            sql = "  select isnull(max(bl_export_seq), 0) + 1 as bl_export_seq from tb_sl_bl_export_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and bl_export_cd = " + bl_export_cd + "  ";
+                            row.put("bl_export_seq", getSOrder(conn, sql));
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {                        
+                                    String value = row.get(key);
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    if (key.equals("progress_status")) {
+                                        sqlValues += "'created'";
+                                    } else {
+                                        sqlValues += value;
+                                    }
+                                }
+                            }
+                            
+                            sql =  " insert into tb_sl_bl_export_detail (" + sqlCoumns + ") VALUES (" + sqlValues + ")";
+                            logger.info("insert into tb_sl_bl_export_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        } else {
+                        
+                            //check connect delivery
+                            is_connect_delivery = false;
+                            prev_sale_qty = 0;
+                            
+                            if (!row.get("invoice_export_cd").equals("NULL") && !row.get("invoice_export_seq").equals("NULL")) {
+                                sql = " select invoice_export_cd, invoice_export_seq from tb_sl_invoice_export_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and invoice_export_cd = " + row.get("invoice_export_cd") + " and invoice_export_seq = " + row.get("invoice_export_seq") + " ";
+                                stmt = conn.createStatement();
+                                rs = stmt.executeQuery(sql);
+                                while (rs.next()) {
+                                    is_connect_delivery = true;
+                                }
+                                //get sale qty before update
+                                if (is_connect_delivery) {
+                                    sql = " select isnull(qty, 0) as qty from tb_sl_bl_export_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and bl_export_cd = " + row.get("bl_export_cd") + " and bl_export_seq = " + row.get("bl_export_seq") + " ";
+                                    prev_sale_qty = Integer.parseInt(selectQuery(conn, sql));
+                                }
+                            }
+                            
+                            
+                            
+                            Iterator<String> keys = row.keySet().iterator();
+                            while(keys.hasNext()){
+                                String key = keys.next();
+                                if ( row.get(key) != null) {
+                                    // 기본키 제외 duplicate sql 만들기
+                                    String value = row.get(key);
+                                    if (!key.equals("comp_cd") && !key.equals("factory_cd") && !key.equals("bl_export_cd") && !key.equals("bl_export_seq") && !key.equals("createuser") && !key.equals("createdate")) {
+                                        if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                        sqlDuplis += (key + "=" + value);
+                                    }
+                                }
+                            }
+                            sql = " update tb_sl_bl_export_detail set " + sqlDuplis + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and bl_export_cd = " + row.get("bl_export_cd") + " and bl_export_seq = " + row.get("bl_export_seq");
+                            logger.info("update tb_sl_bl_export_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        bl_export_seqList[i] = row.get("bl_export_seq");
+                        
+                        //update progress request detail
+                        if (!row.get("invoice_export_cd").equals("NULL") && !row.get("invoice_export_seq").equals("NULL")) {
+                            sql = " select isnull(progress_qty, 0) as progress_qty from tb_sl_invoice_export_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and invoice_export_cd = " + row.get("invoice_export_cd") + " and invoice_export_seq = " + row.get("invoice_export_seq") + " ";
+                            delivery_progress_qty = (Integer.parseInt(selectQuery(conn, sql)) - prev_sale_qty) + Double.parseDouble(row.get("qty"));
+                            
+                            sql = " select isnull(qty, 0) as qty from tb_sl_invoice_export_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and invoice_export_cd = " + row.get("invoice_export_cd") + " and invoice_export_seq = " + row.get("invoice_export_seq") + " ";
+                            delivery_qty = Integer.parseInt(selectQuery(conn, sql));
+                            
+                            delivery_progress_status = delivery_progress_qty >= delivery_qty ? "completed" : "in_progress";
+                            sql = " update tb_sl_invoice_export_detail set progress_status = '" + delivery_progress_status + "', progress_qty = " + delivery_progress_qty + " where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and invoice_export_cd = " + row.get("invoice_export_cd") + " and invoice_export_seq = " + row.get("invoice_export_seq") + " ";
+                            logger.info("update tb_sl_invoice_export_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                    }
+                }
+            
+                //delete sale detail
+                //update progress delivery detail before delete
+                String sql1 = " select comp_cd, factory_cd, bl_export_cd, bl_export_seq, invoice_export_cd, invoice_export_seq, qty from tb_sl_bl_export_detail where invoice_export_cd is not null and invoice_export_seq is not null and comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and bl_export_cd= " + bl_export_cd;
+                List<Map<String, Object>> list1 = new ArrayList<>();
+                List<Map<String, Object>> list2 = new ArrayList<>();
+                
+                sql = " delete from tb_sl_bl_export_detail where comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " and bl_export_cd = " + bl_export_cd;	
+                if (bl_export_seqList.length > 0) {
+                    sql += " and bl_export_seq not in ( ";
+                    sql1 += " and bl_export_seq not in ( ";
+                    for(int iDetailDelete = 0; iDetailDelete < bl_export_seqList.length; iDetailDelete++)
+                    {
+                        if (iDetailDelete == bl_export_seqList.length - 1) {
+                            sql += "" + bl_export_seqList[iDetailDelete] + ")";
+                            sql1 += "" + bl_export_seqList[iDetailDelete] + ")";
+                        } else {
+                            sql += "" + bl_export_seqList[iDetailDelete] + ", ";
+                            sql1 += "" + bl_export_seqList[iDetailDelete] + ", ";
+                        }
+                    }
+                }
+                
+                list1 = selectAllQuery(conn, sql1);
+                for(int i1 = 0 ; i1 < list1.size() ; i1 ++){
+                    sql1 = " select bl_export_cd, bl_export_seq from tb_sl_bl_export_detail where invoice_export_cd = '" + list1.get(i1).get("invoice_export_cd") + "' and invoice_export_seq = " + list1.get(i1).get("invoice_export_seq") + " and bl_export_seq != " + list1.get(i1).get("bl_export_seq") + " and bl_export_cd != '" + list1.get(i1).get("bl_export_cd") + "' and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                    list2 = selectAllQuery(conn, sql1);
+                    
+                    sql1 = " update tb_sl_invoice_export_detail set progress_qty = progress_qty - " + list1.get(i1).get("qty") + " , progress_status = '" + (list2.size() > 0 ? "in_progress" : "confirmed") + "' where invoice_export_cd = '" + list1.get(i1).get("invoice_export_cd") + "' and invoice_export_seq = " + list1.get(i1).get("invoice_export_seq") + " and comp_cd = " + comp_cd + " and factory_cd = " + factory_cd + " ";
+                    logger.info("update into tb_sl_invoice_export_detail");
+                    logger.info(sql1);
+                    pstmt = conn.prepareStatement(sql1);
+                    pstmt.executeUpdate();
+                }
+                
+                logger.info("delete into tb_sl_bl_export_detail");
+                logger.info(sql);
+                pstmt = conn.prepareStatement(sql);
+                pstmt.executeUpdate();
+                
+                
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        if (i>0) break;
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_bl_export", list.get(i));
+                        
+                        String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = " + row.get("comp_cd") + " AND factory_cd = " + row.get("factory_cd") + " AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = " + row.get("delivery_date").replace("-", "").substring(1, 7));
+                        
+                        if (Integer.parseInt(checkDateEnd) > 0) {
+                            throw new Exception("재고마감처리가 완료되어서 처리가 불가합니다!");
+                        } else {
+                            if (!row.get("bl_export_cd").equals("NULL")){
+                                //delete head
+                                sql =  " update tb_sl_bl_export set use_yn = 'N' where bl_export_cd = " + row.get("bl_export_cd") + " and comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd");
+                                
+                                logger.info("delete into tb_sl_bl_export");
+                                logger.info(sql);
+                                pstmt = conn.prepareStatement(sql);
+                                pstmt.executeUpdate();
+                                addHistory(sql);
+                                
+                                //delete  detail
+                                sql = " select comp_cd, factory_cd, bl_export_cd, bl_export_seq, invoice_export_cd, invoice_export_seq, qty from tb_sl_bl_export_detail where comp_cd = " + row.get("comp_cd") + " and factory_cd = " + row.get("factory_cd") + " and bl_export_cd = " + row.get("bl_export_cd");
+                                List<Map<String, Object>> list1 = new ArrayList<>();
+                                
+                                List<Map<String, Object>> list2 = new ArrayList<>();
+                                
+                                list1 = selectAllQuery(conn, sql);
+                                for(int i1 = 0 ; i1 < list1.size() ; i1 ++){
+                                    sql =  " delete from tb_sl_bl_export_detail where bl_export_cd = '" + list1.get(i1).get("bl_export_cd") + "' and bl_export_seq = " + list1.get(i1).get("bl_export_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                    logger.info("delete into tb_sl_bl_export_detail");
+                                    logger.info(sql);
+                                    pstmt = conn.prepareStatement(sql);
+                                    pstmt.executeUpdate();
+                                    addHistory(sql);
+                                
+                                    //update order
+                                    if (list1.get(i1).get("invoice_export_cd") != null && list1.get(i1).get("invoice_export_seq") != null) {
+                                        sql = " select invoice_export_cd, invoice_export_seq from tb_sl_bl_export_detail where invoice_export_cd = '" + list1.get(i1).get("invoice_export_cd") + "' and invoice_export_seq = " + list1.get(i1).get("invoice_export_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                        list2 = selectAllQuery(conn, sql);
+                                        
+                                        sql = " update tb_sl_invoice_export_detail set progress_qty = progress_qty - " + list1.get(i1).get("qty") + " , progress_status ='" + (list2.size() > 0 ? "in_progress" : "confirmed") + "' where invoice_export_cd = '" + list1.get(i1).get("invoice_export_cd") + "' and invoice_export_seq = " + list1.get(i1).get("invoice_export_seq") + " and comp_cd = '" + list1.get(i1).get("comp_cd")  + "' and factory_cd = '" + list1.get(i1).get("factory_cd")  + "' ";
+                                        logger.info("update into tb_sl_invoice_export_detail");
+                                        logger.info(sql);
+                                        pstmt = conn.prepareStatement(sql);
+                                        pstmt.executeUpdate();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                PassText = "Deleted.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("cust_btn5") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>
