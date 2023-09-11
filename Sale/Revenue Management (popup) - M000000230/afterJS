@@ -25,6 +25,7 @@ if ( gd11.length > 0 ) {
     for (let i = 0; i <= gd11.length; i++) {
         if (gd11[i][itmobj2["progress_status"]] && gd11[i][itmobj2["progress_status"]] !== "created") {
             $("#del_btn").hide();
+            $("#save_btn").hide();
             break;
         }
     }
