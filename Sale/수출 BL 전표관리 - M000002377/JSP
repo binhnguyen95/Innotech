@@ -20,15 +20,10 @@
     String sdetail = (String)request.getParameter("sdetail");
     String type = (String)request.getParameter("type");
     String UID = (String)request.getParameter("UID");
-
-    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
     
     String sLine = "";
     String sText = "";
-    String user = "sa";
-    String password = "tlaqlwm2174";
-
+    
     JSONObject jsonObj = new JSONObject();
     String PassText = null;
     String sql = "";
@@ -36,6 +31,10 @@
     java.sql.PreparedStatement pstmt = null;
     ResultSet rs = null;
     Statement stmt = null;
+    
+    String comp_cd = (String)request.getParameter("comp_cd");
+    String factory_cd = (String)request.getParameter("factory_cd");
+    String delivery_date = (String)request.getParameter("delivery_date");
 
 
     try {
@@ -89,14 +88,22 @@
                         }
                     }
                     
-                    String[] returnValueHandleCallTheZone = new String[2];
-                    returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, dateInput, deptCd, UID, varConv);
-                    if (returnValueHandleCallTheZone[0] == null) {
-                        throw new Exception("500 Internal Server Error");
+                    String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = '" + comp_cd + "' AND factory_cd = '" + factory_cd + "' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = '" + delivery_date.replace("-", "").substring(0, 6) + "'");
+                    
+                    if (Integer.parseInt(checkDateEnd) > 0) {
+                        throw new Exception("재고마감처리가 완료되어서 처리가 불가합니다!");
+                    } else {
+                        String[] returnValueHandleCallTheZone = new String[2];
+                        returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, dateInput, deptCd, UID, varConv, "");
+                        
+                        if (returnValueHandleCallTheZone[0] == null) {
+                            throw new Exception("500 Internal Server Error");
+                        }
+                        if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
+                            throw new Exception(returnValueHandleCallTheZone[1]);
+                        }
                     }
-                    if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
-                        throw new Exception(returnValueHandleCallTheZone[1]);
-                    }
+                    
                 }
                 PassText = "저장 되었습니다.";
                 jsonObj.put("result", PassText);
@@ -144,13 +151,19 @@
                         }
                     }
                     
-                    String[] returnValueHandleCallTheZone = new String[2];
-                    returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, billDate, deptCd, UID, varConv);
-                    if (returnValueHandleCallTheZone[0] == null) {
-                        throw new Exception("500 Internal Server Error");
-                    }
-                    if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
-                        throw new Exception(returnValueHandleCallTheZone[1]);
+                    String checkDateEnd = getSOrder(conn, "SELECT COUNT(*) checkDateEnd FROM tb_ts_stock_closing WHERE comp_cd = '" + comp_cd + "' AND factory_cd = '" + factory_cd + "' AND isnull(in_out_close_yn, '') = 'Y' AND closing_ym = '" + delivery_date.replace("-", "").substring(0, 6) + "'");
+                    
+                    if (Integer.parseInt(checkDateEnd) > 0) {
+                        throw new Exception("재고마감처리가 완료되어서 처리가 불가합니다!");
+                    } else {
+                        String[] returnValueHandleCallTheZone = new String[2];
+                        returnValueHandleCallTheZone = call_ACT_IF_THEZONE(conn, pType, billDate, deptCd, UID, varConv, "");
+                        if (returnValueHandleCallTheZone[0] == null) {
+                            throw new Exception("500 Internal Server Error");
+                        }
+                        if (!returnValueHandleCallTheZone[0].trim().equals("OK")) {
+                            throw new Exception(returnValueHandleCallTheZone[1]);
+                        }
                     }
                 }
                 PassText = "저장 되었습니다.";
@@ -173,8 +186,17 @@
             if (pstmt != null) pstmt.close();
         }
     } catch (Exception e) {
-        out.write("error : " + e.getMessage().toString() + "\n" + sql);
+        if (e.getMessage().equals("재고마감처리가 완료되어서 처리가 불가합니다!")){
+            PassText = "재고마감처리가 완료되어서 처리가 불가합니다!";
+        } else {
+            out.write("error : " + e.getMessage() + "\n" + sql);
+        }
+        
         if (conn != null) conn.close();
         if (pstmt != null) pstmt.close();
+        
+        jsonObj.put("result", PassText);
+        PassText = jsonObj.toString();
+        out.write(PassText);
     }
 %>
