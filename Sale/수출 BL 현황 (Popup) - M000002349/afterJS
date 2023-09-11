@@ -2,3 +2,14 @@ var gd1 = grid1.getRows();
 if ( gd1.length > 0 ) {
     grid1.check(0);
 }
+
+var gd11 = grid1_1.getRows();
+if ( gd11.length > 0 ) {
+    for (let i = 0; i <= gd11.length; i++) {
+        if (gd11[i][itmobj2["progress_status"]] && gd11[i][itmobj2["progress_status"]] !== "new") {
+            $("#del_btn").hide();
+            $("#save_btn").hide();
+            break;
+        }
+    }
+}

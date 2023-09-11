@@ -1,0 +1,43 @@
+
+select 
+           a.comp_cd,
+           a.factory_cd,
+           a.bl_export_cd,
+           a.project_cd,
+           a.invoice_export_cd,
+           a.order_cd,
+           a.export_type,
+           a.sale_type,
+           a.sale_proc_type,
+           a.sale_date,
+           a.delivery_date,
+           a.delivery_address,
+           a.wh_cd,
+           a.dept_cd,
+           a.manager_id,
+           a.have_tax,
+           a.tot_supply_amt,
+           a.tot_vat_amt,
+           a.bl_amt,
+           a.currency_unit,
+           a.currency_ratio,
+           a.tot_currency_amt,
+           a.order_no,
+           a.equip_yn,
+           a.cust_delivery_nm,
+           a.createuser,
+           a.createdate,
+           a.updateuser,
+           a.updatedate,
+           a.memo,
+           a.cust_cd,
+           b.cust_nm
+          
+  from tb_sl_bl_export a 
+  
+  left join tb_ma_client b on a.cust_cd = b.cust_item_cd
+  
+  where a.comp_cd = {comp_cd} and a.factory_cd = {factory_cd} and a.bl_export_cd = {bl_export_cd}
+  
+  order by a.createdate desc
+  ;
