@@ -1,0 +1,21 @@
+SELECT
+    {menu_srch} menu_srch
+    , {user_srch} user_srch
+	, a.auth_id
+	, a.menu_cd
+	, b.menu_nm
+	, a.user_id
+	, c.USERNAME
+	, a.appr_btn
+	, a.appr_cancel_btn
+	, a.remark
+	, a.createuser
+	, a.createdate
+	, a.updateuser
+	, a.updatedate
+FROM tb_ma_auth_button a
+left join tb_cm_menulist b on b.menu_cd = a.menu_cd
+left join vw_cm_usermaster c on c.UID = a.user_id
+where 1=1
+and (isnull({menu_srch},'') = '' or a.menu_cd like concat('%', {menu_srch}, '%') or b.menu_nm like concat('%', {menu_srch}, '%'))
+and (isnull({user_srch},'') = '' or c.USERNAME like concat('%', {user_srch}, '%'))

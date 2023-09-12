@@ -1,0 +1,189 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.time.LocalDate"%>
+<%@page import="java.time.format.DateTimeFormatter"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000173.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+    String UID = (String)request.getParameter("UID");
+    
+    String sLine = "";
+    String sText = "";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    String sqlCoumns = "";
+    String sqlValues = "";
+    String sqlDuplis = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    
+    //get now
+    LocalDate today = LocalDate.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMM");
+    String formattedDateNow = today.format(formatter);
+    
+    String cost_unit = "";
+    
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) { 
+                Gson gson = new Gson();
+                boolean isInsert = false;
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        sqlCoumns = "";
+                        sqlValues = "";
+                        sqlDuplis = "";
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_auth_button", list.get(i));
+                        
+                        String cnt = getSOrder(conn, " select count(*) cnt from tb_ma_auth_button where auth_id = " + row.get("auth_id"));
+
+                        if (cnt.equals("0")) {
+                            isInsert = true;
+                        }
+                        
+                        Iterator<String> keys = row.keySet().iterator();
+                        while(keys.hasNext()){
+                            String key = keys.next();
+                            if ( row.get(key) != null) {                        
+                                String value = row.get(key);
+                                
+                                if (!key.equals("auth_id")) {
+                                    if (!sqlCoumns.equals("")) { sqlCoumns += ", "; }
+                                    sqlCoumns += key;
+                                    if (!sqlValues.equals("")) { sqlValues += ", "; }
+                                    sqlValues += value;
+                                }
+                                
+                                // 기본키 제외 duplicate sql 만들기
+                                if (!key.equals("auth_id") && !key.equals("createuser") && !key.equals("createdate")) {
+                                    if (!sqlDuplis.equals("")) { sqlDuplis += ", "; }
+                                    sqlDuplis += (key + "=" + value);
+                                }
+                            }
+                        }
+                        
+
+                        if (isInsert){
+                            sql =  " insert into tb_ma_auth_button (" + sqlCoumns + ") VALUES (" + sqlValues.trim() + ")";
+                            
+                            logger.info("insert into tb_ma_auth_button");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                        }else{
+                            sql = " update tb_ma_auth_button set " + sqlDuplis.trim() + " where auth_id = " + row.get("auth_id") + " ";
+                            
+                            /*out.write("update : " + sql);
+                            if (conn != null) conn.close();
+                            if (pstmt != null) pstmt.close();*/
+                            
+                            logger.info("update tb_ma_auth_button");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                    }
+                }
+
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            
+            if (type.equals("get_auth")) {
+                String menu_cd = (String)request.getParameter("menu_cd");
+                
+                sql = "select appr_btn, appr_cancel_btn ";
+                sql += "from tb_ma_auth_button where menu_cd = '" + menu_cd + "' and user_id = '" + UID + "'";
+                List<Map> list = selectAllQuery(conn, sql);
+                out.write(new Gson().toJson(list));
+            }
+
+
+            if ( type.equals("delete") ) {
+                Gson gson = new Gson();
+                String cost_ym = "";
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_ma_auth_button", list.get(i));
+                        
+                        cost_ym = row.get("auth_id");
+                        
+                        if (!row.get("auth_id").equals("NULL")){
+                        
+                            sql =  " delete from tb_ma_auth_button where auth_id = " + row.get("auth_id");
+                            logger.info("update into tb_ma_auth_button");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory(sql);
+                            
+                        }
+                    }
+                }
+                PassText = "삭제되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+            if ( type.equals("cust_btn1") ) {}
+            if ( type.equals("cust_btn2") ) {}
+            if ( type.equals("cust_btn3") ) {}
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("cust_btn5") ) {}
+            
+            if (type.equals("excel")) {}
+
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage() + "\n" + sql);
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>
