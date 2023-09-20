@@ -6,6 +6,11 @@ $("#detail-addrow").show();
 $("#detail-delrow").show();
 $("#search_btn").hide();
 $("#reset_btn").hide();
+
+$(`.${itmobj1["order_file_btn"]}-ITEM`).first().html(`<div class="right-tap-btn ajaxset" id="order_file_btn" style="">
+									<span class="right-btn-text">파일찾기</span></div>`);
+$(`.${itmobj1["order_file"]}-ITEM`).first().find(".form-content").html(`<div class="top_data form-input formreadonly order_file_preview"></div>`)
+
 var DUMMY1 = parent.$("#DUMMY1").val();
 var DUMMY2 = parent.$("#DUMMY2").val();
 var DUMMY3 = parent.$("#DUMMY3").val();
@@ -344,3 +349,16 @@ function renderEstimateData(estimateGrid1, estimateGrid11) {
         }
     }
 }
+
+$(`#order_file_btn`).on("click", function() {
+    $("#DUMMY1").val($(`#${itmobj1["comp_cd"]}`).val())
+    $("#DUMMY2").val($(`#${itmobj1["factory_cd"]}`).val())
+    $("#DUMMY3").val($(`#${itmobj1["order_cd"]}`).val())
+    $("#DUMMY4").val(itmobj1["order_cd"])
+    $("#cust_btn1").trigger("click")
+})
+
+
+
+
+

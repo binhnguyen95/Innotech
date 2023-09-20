@@ -10,7 +10,31 @@ if ( gd1.length > 0 ) {
             localStorage.setItem("sl_order_grid11", JSON.stringify(grid1_1.getRows()));
         }
     },500)
+
+    const file_img = "/resources/images/file_icon_detail.png";
+    let doc_file = grid1.getValue(0, itmobj1["order_file"]) + "";
+    if (doc_file) {
+        let html = "";
+        try {
+            doc_file = JSON.parse(decodeURIComponent(doc_file));
+            for (let i = 0; i < doc_file.length; i++) {
+            html += `<a target="_blank" href="/file/${doc_file[i].newfilename}">
+                    <img src="${file_img}" />
+                </a>`;
+            }
+        } catch (e) {
+            doc_file = doc_file.split("@@@")[0]
+            html = `<a target="_blank" href="${doc_file}">
+                <img src="${file_img}" />
+            </a>`;
+            
+        }
+        if (nvl(html,"") !== "") {
+            $(".order_file_preview").html(html);
+        }
+    }
 }
+sessionStorage.setItem("224_checked", "true");
 
 if (nvl($(`select#${itmobj1["estimate_cd"]}`).val(), "") !== "") {
     $(`select#${itmobj1["estimate_cd"]}`).parent().parent().show();
