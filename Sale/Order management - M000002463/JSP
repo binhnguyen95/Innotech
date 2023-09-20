@@ -20,13 +20,8 @@
     String sdetail = (String)request.getParameter("sdetail");
     String type = (String)request.getParameter("type");
 
-    String driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-    String url = "jdbc:sqlserver://192.168.2.205:1433;DatabaseName=simbiz";
-    
     String sLine = "";
     String sText = "";
-    String user = "sa";
-    String password = "tlaqlwm2174";
 
     JSONObject jsonObj = new JSONObject();
     String PassText = null;
@@ -52,8 +47,78 @@
             if ( type.equals("delete") ) {}
             if ( type.equals("cust_btn1") ) {}
             if ( type.equals("cust_btn2") ) {}
-            if ( type.equals("cust_btn3") ) {}
+            
+            if ( type.equals("cust_btn3") ) {
+                Gson gson = new Gson();
+                if (header != null) {
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        sql = "select * from tb_sl_order_detail where isnull(use_yn,'Y') = 'Y' and order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        
+                        List<Map<String, Object>> orders = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < orders.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_order_detail", orders.get(j));
+
+                            //update detail
+                            sql = "update tb_sl_order_detail set progress_status = 'confirmed' where order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                            
+                            logger.info("update tb_sl_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                            
+
+                        }
+                    }
+
+                    PassText = "Success.";
+                    jsonObj.put("result", PassText);
+                    PassText = jsonObj.toString();
+                    out.write(PassText);
+                    out.flush();
+                    conn.commit();
+                    logger.info("!!!!COMMIT DONE!!!!");
+                    
+
+                }
+            }
+            
             if ( type.equals("cust_btn4") ) {
+                Gson gson = new Gson();
+                if (header != null) {
+                    List<Map> list = gson.fromJson(header, List.class);
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        sql = "select * from tb_sl_order_detail where isnull(use_yn,'Y') = 'Y' and order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                        List<Map<String, Object>> orders = selectAllQuery(conn, sql);
+                        for(int j = 0 ; j < orders.size() ; j++){
+                            Map<String, String> row = getRow(conn, "simbiz", "dbo", "tb_sl_order_detail", orders.get(j));
+
+                            
+                            //update detail
+                            sql = "update tb_sl_order_detail set progress_status = 'created' where order_cd = '" + list.get(i).get("order_cd").toString() + "' and comp_cd = '" + list.get(i).get("comp_cd").toString() + "' and factory_cd = '" + list.get(i).get("factory_cd").toString() + "'";
+                            logger.info("update tb_sl_order_detail");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                            
+                            
+                        }
+                    }
+                    
+                    PassText = "Success.";
+                    jsonObj.put("result", PassText);
+                    PassText = jsonObj.toString();
+                    out.write(PassText);
+                    out.flush();
+                    conn.commit();
+                    logger.info("!!!!COMMIT DONE!!!!");
+                }
+            }
+
+            
+            if ( type.equals("cust_btn6") ) {
                 String item_cd = (String)request.getParameter("item_cd");
                 String comp_cd = (String)request.getParameter("comp_cd");
                 String factory_cd = (String)request.getParameter("factory_cd");
@@ -62,12 +127,14 @@
                 /*int qtyInt = Integer.parseInt(Double.parseDouble(qty));*/
                 double qtyInt = Double.parseDouble(qty);
                 
-                sql = "SELECT b.comp_cd, b.factory_cd, b.prod_item_cd as sale_order_item_cd, it.item_cd, it.item_no, it.item_nm, it.spec, it.unit, it.item_type, b.qty * " + qtyInt + " as qty, s.available_stock ";
-                sql += " FROM tb_ma_bom b join tb_ma_item it on it.item_cd = b.c_item_cd and it.factory_cd = b.factory_cd and it.comp_cd = b.comp_cd";
+                sql = "SELECT b.comp_cd, b.factory_cd, b.status, b.prod_item_cd as sale_order_item_cd, it.item_cd, it.item_type_nm, it.item_no, it.item_nm, it.spec, it.unit, it.item_type, b.qty * " + qtyInt + " as qty, s.available_stock ";
+                sql += " FROM tb_ma_bom b join vw_ma_item it on it.item_cd = b.c_item_cd and it.factory_cd = b.factory_cd and it.comp_cd = b.comp_cd";
                 sql += " left join (select item_cd, sum(UseQty) as available_stock from tb_ts_nqty group by item_cd) s on s.item_cd = it.item_cd";
-                sql += " where b.prod_item_cd = '" + item_cd + "' and b.comp_cd = '" + comp_cd + "' and b.factory_cd = '" + factory_cd + "' and isnull(b.use_yn,'Y') = 'Y'" ;
+                sql += " where b.prod_item_cd = '" + item_cd + "' and b.comp_cd = '" + comp_cd + "' and b.factory_cd = '" + factory_cd + "' and b.status = 'confirm' and isnull(b.use_yn,'Y') = 'Y'" ;
+                
                 String json = new Gson().toJson(selectAllQuery(conn, sql));
                 out.write(json);
+
             }
             if ( type.equals("getPurchaseRequestByOrderCD") && header != null) {
                 sql = "SELECT item_cd, SUM(request_qty) as request_qty , a.sl_order_cd FROM tb_pur_request a join tb_pur_request_detail b on a.request_cd = b.request_cd  WHERE sl_order_cd in (";
@@ -86,6 +153,7 @@
                 }
                 sql += " GROUP BY item_cd,  a.sl_order_cd";
                 sql = sql.replaceAll("[\\[\\]]", "");
+                
                 
                 String json = new Gson().toJson(selectAllQuery(conn, sql));
                 out.write(json);

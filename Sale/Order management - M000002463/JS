@@ -4,13 +4,18 @@ let checkCallBom = 0;
 $("#search_btn").on("click", function() {
     grid1_1.clear();
 });
-$("#search_btn").trigger("click");
 $("#save_btn").hide();
 $("#del_btn").hide();
 $("#header-addrow").hide();
 $("#header-delrow").hide();
 $("#detail-addrow").hide();
 $("#detail-delrow").hide();
+
+const today = moment();
+const lastDay = today.endOf("month").format("YYYY-MM-DD");
+$(`#${itmobj1["fromdt"]}`).val(moment().format("YYYY-MM-01"));
+$(`#${itmobj1["todt"]}`).val(lastDay);
+$("#search_btn").trigger("click");
 
 //get dept_cd current account
 $("#DUMMY10").val("");
@@ -29,6 +34,38 @@ $.ajax({
     }
   },
   error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+});
+//end
+
+//get auth for button
+var data1 = {};
+data1.type = "get_auth";
+data1.menucode = "M000002474";
+data1.menu_cd = $("#menucode").val();
+data1.UID = $("#UID").val();
+
+$.ajax({
+type: "POST",
+url: "/ajax.do",
+data: data1,
+success: function(response, status, request) {
+    const data = JSON.parse(response.trim())
+    
+    if (data.length > 0) {
+        if (data[0].appr_btn && data[0].appr_btn == "N") {
+            $("#cust_btn3").hide();
+        }
+        
+        if (data[0].appr_cancel_btn && data[0].appr_cancel_btn == "N") {
+            $("#cust_btn4").hide();
+        }
+    } else {
+        $("#cust_btn3").hide();
+        $("#cust_btn4").hide();
+    }
+    
+},
+error: function(xmlHttpRequest, txtStatus, errorThrown) {}
 });
 //end
 
@@ -72,8 +109,139 @@ grid1.on("check", function(event) {
     }, 500);
 })
 
-//handle jump to delivery
+//approve
 $("#cust_btn3").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"created") !== "created") {
+                error_msg = "작성 상태만 승인처리가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }   
+        
+        if (check_flag) {
+            if (confirm("승인처리하시겠습니까? ")) {
+                const checked = grid1.getCheckedRows();
+                if (checked.length > 0) {
+                    let header = [];
+                    for(let i = 0; i < checked.length; i++) {
+                        const item = {};
+                        item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                        item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                        item.order_cd = checked[i][itmobj1["order_cd"]];
+                        header.push(item);
+                    }
+                    var data = {};
+                    data.type = "cust_btn3";
+                    data.menucode = $("#menucode").val();
+                    data.header = JSON.stringify(header);
+                    
+                    $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) {
+                        response = JSON.parse(response);
+                        if (response.result == "Success.") {
+                            msg("처리 완료되었습니다!", null, "N");
+                            $("#search_btn").trigger("click")
+                        } else {
+                            msg(response.result, null, "N");
+                        }
+                    },
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                        
+                    });
+                }
+            }
+        } else {
+            error_msg = "작성 상태만 승인처리가 가능합니다!"
+            msg(error_msg);
+        }
+    } else {
+        msg("품목을 선택하십시오!", null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+    }
+})
+//
+
+//cancel approve
+$("#cust_btn4").on("click", function () {
+    const checked = grid1.getCheckedRows();
+    const checked11 = grid1_1.getCheckedRows();
+    if (checked.length > 0) {
+        let check_flag = true;
+        let error_msg = "";
+        
+        for(let i = 0; i < checked11.length; i++) {
+            if (nvl(checked11[i][itmobj2["progress_status"]],"confirmed") !== "confirmed") {
+                error_msg = "승인된 것만  승인취소가 가능합니다!"
+                check_flag = false;
+                break;
+            }
+        }
+        
+        if (check_flag) {
+            if (confirm("승인취소하시겠습니까?")) {
+                const checked = grid1.getCheckedRows();
+                if (checked.length > 0) {
+                    let header = [];
+                    for(let i = 0; i < checked.length; i++) {
+                        const item = {};
+                        item.comp_cd = checked[i][itmobj1["comp_cd"]];
+                        item.factory_cd = checked[i][itmobj1["factory_cd"]];
+                        item.order_cd = checked[i][itmobj1["order_cd"]];
+                        header.push(item);
+                    }
+                    var data = {};
+                    data.type = "cust_btn4";
+                    data.menucode = $("#menucode").val();
+                    data.header = JSON.stringify(header);
+                    
+                    $.ajax({
+                    type: "POST",
+                    url: "/ajax.do",
+                    data: data,
+                    success: function(response, status, request) {
+                        response = JSON.parse(response);
+                        if (response.result == "Success.") {
+                            msg("처리 완료되었습니다!", null, "N");
+                            $("#search_btn").trigger("click")
+                        } else {
+                            msg(response.result, null, "N");
+                        }
+                    },
+                    error: function(xmlHttpRequest, txtStatus, errorThrown) {}
+                        
+                    });
+                }
+            }
+        } else {
+            error_msg = "승인된 것만  승인취소가 가능합니다!"
+            msg(error_msg);
+        }
+    } else {
+        msg("품목을 선택하십시오!", null, "N");
+        if ($("#msgconfirm").is(":visible")) {
+          $("#msgconfirm").dialog("destroy");
+        }
+        return false;
+    }
+})
+//
+
+
+//handle jump to delivery
+$("#cust_btn5").on("click", function () {
   var gd1 = grid1.getCheckedRows();
   var gd11 = grid1_1.getCheckedRows();
   if (gd1.length === 1 && gd11.length > 0) {
@@ -117,6 +285,15 @@ $("#cust_btn3").on("click", function () {
         }
         return false;
       }
+      
+      if (gd11[i][itmobj2["progress_status"]] == "created") {
+            msg(`승인된 건만 처리가능합니다.`, null, "N");
+            if ($("#msgconfirm").is(":visible")) {
+              $("#msgconfirm").dialog("destroy");
+            }
+            return false;
+        }
+      
       let obj = {};
       obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
       obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
@@ -133,9 +310,9 @@ $("#cust_btn3").on("click", function () {
       obj.unit = gd11[i][itmobj2["unit"]];
       obj.order_qty = +gd11[i][itmobj2["order_qty"]] - +(gd11[i][itmobj2["progress_qty"]] ? gd11[i][itmobj2["progress_qty"]] : 0);
       obj.order_price = gd11[i][itmobj2["order_price"]];
-      obj.supply_amt = +gd11[i][itmobj2["order_price"]]*obj.order_qty;
-      obj.vat_amt = gd1[0][itmobj1["have_tax"]] === "tax" ? obj.supply_amt * 0.1 : 0;
-      obj.order_amt = obj.supply_amt + obj.vat_amt;
+      obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
+      obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
+      obj.order_amt = gd11[i][itmobj2["order_amt"]];
       obj.progress_qty = gd11[i][itmobj2["progress_qty"]];
       obj.progress_status = gd11[i][itmobj2["progress_status"]];
       gd11Convert.push(obj);
@@ -154,7 +331,7 @@ $("#cust_btn3").on("click", function () {
 });
 
 //handle jump to purchase request
-$("#cust_btn4").on("click", function () {
+$("#cust_btn6").on("click", function () {
   var gd1 = grid1.getCheckedRows();
   var gd11 = grid1_1.getCheckedRows();
   if (gd1.length === 1 && gd11.length > 0) {
@@ -196,6 +373,15 @@ $("#cust_btn4").on("click", function () {
     
     let gd11Convert = [];
     for (let i = 0; i < gd11.length; i++) {
+        if (gd11[i][itmobj2["progress_status"]] == "created") {
+            msg(`승인된 건만 처리가능합니다.`, null, "N");
+            if ($("#msgconfirm").is(":visible")) {
+              $("#msgconfirm").dialog("destroy");
+            }
+            return false;
+        }
+        
+        
       let obj = {};
       obj.comp_cd = gd11[i][itmobj2["comp_cd"]];
       obj.factory_cd = gd11[i][itmobj2["factory_cd"]];
@@ -205,11 +391,13 @@ $("#cust_btn4").on("click", function () {
       obj.wh_cd = gd11[i][itmobj2["wh_cd"]];
       obj.item_cd = gd11[i][itmobj2["item_cd"]];
       obj.p_item_cd = gd11[i][itmobj2["p_item_cd"]];
+      obj.item_type_nm = gd11[i][itmobj2["item_type_nm"]];
       obj.item_no = gd11[i][itmobj2["item_no"]];
       obj.item_nm = gd11[i][itmobj2["item_nm"]];
       obj.spec = gd11[i][itmobj2["spec"]];
       obj.unit = gd11[i][itmobj2["unit"]];
       obj.qty = gd11[i][itmobj2["order_qty"]];
+      
       obj.order_price = gd11[i][itmobj2["order_price"]];
       obj.supply_amt = gd11[i][itmobj2["supply_amt"]];
       obj.vat_amt = gd11[i][itmobj2["vat_amt"]];
@@ -229,6 +417,7 @@ $("#cust_btn4").on("click", function () {
             if(confirm("수주번호가 중복되었습니다! 계속하시겠습니까?")){
                 itemsInBom = [];
                 checkCallBom = gd11Convert.length;
+                
                 callItemInBom(gd1Convert, gd11Convert, true, response);
             }
         }else
@@ -251,7 +440,7 @@ $("#cust_btn4").on("click", function () {
   
 });
 
-async function callItemInBom(parents, items, is_first = false, data_purchase_request = []) {
+async function callItemInBom(parents, items, is_first = false, data_purchase_request = []) { 
     let check = 0;
     for (let i = 0; i < items.length; i++) {
         var data = {};
@@ -268,8 +457,10 @@ async function callItemInBom(parents, items, is_first = false, data_purchase_req
           success: function (response, status, request) {
             if (status === "success") {
               const data = JSON.parse(response.trim());
+              
               if (data.length > 0) {
-                  callItemInBom(parents, data, null, data_purchase_request)
+                  callItemInBom(parents, data, null, data_purchase_request);
+                  
               } else {
                   if (is_first && nvl(sessionStorage.getItem("sOrderGrid_missing_error_msg"),"") === "") {
                       sessionStorage.setItem("sOrderGrid_missing_error_msg", "BOM에 등록되어 있지 않은 품목이 존재합니다!");
@@ -308,6 +499,9 @@ async function callItemInBom(parents, items, is_first = false, data_purchase_req
                       }
                       
                     // if order_cd isset in purchase_request then calculator again qty before jump
+                    result = result.map((e, i)=>{
+                            return {...e, required: e.qty, requested: 0};
+                        });
                     if(data_purchase_request.length > 0){
                         result.map((e, i)=>{
                             const purchase_request = data_purchase_request.find((value)=>{
@@ -320,13 +514,17 @@ async function callItemInBom(parents, items, is_first = false, data_purchase_req
                                 }else{
                                     result[i].qty = 0;
                                 }
+                                e.requested = purchase_request.request_qty;
                             }
                             
                         });
                     }
+                    
                     if (result.length === 0 && nvl(sessionStorage.getItem("sOrderGrid_error_msg"),"") === "") {
                         sessionStorage.setItem("sOrderGrid_error_msg", "해당 품목은 BOM에서 등록되지 않습니다!");
                     }
+                    
+                    
                     
                     localStorage.setItem("sOrderGrid1", JSON.stringify(parents));
                     localStorage.setItem("sOrderGrid11", JSON.stringify(result));
@@ -363,10 +561,22 @@ async function validateBeforeJumpPurchaseRequest(order_cd_list){
 //end
 
 //handle jump to production plan
-$("#cust_btn5").on("click", function () {
+$("#cust_btn7").on("click", function () {
   var gd1 = grid1.getCheckedRows();
   var gd11 = grid1_1.getCheckedRows();
+  
   if (gd1.length === 1 && gd11.length === 1) {
+      
+        for (let i = 0; i < gd11.length; i++) {
+            if (gd11[i][itmobj2["progress_status"]] == "created") {
+                msg(`승인된 건만 처리가능합니다.`, null, "N");
+                if ($("#msgconfirm").is(":visible")) {
+                  $("#msgconfirm").dialog("destroy");
+                }
+                return false;
+            }
+        }    
+      
       let obj = {};
       
       obj.comp_cd = gd11[0][itmobj2["comp_cd"]];
@@ -383,8 +593,8 @@ $("#cust_btn5").on("click", function () {
       obj.order_qty = gd11[0][itmobj2["order_qty"]];
       obj.cust_cd = gd1[0][itmobj1["cust_cd"]];
       obj.cust_nm = gd1[0][itmobj1["cust_nm"]];
-          obj.expected_delivery_date = gd1[0][itmobj1["expected_delivery_date"]];
-            obj.plan_to = gd1[0][itmobj1["expected_delivery_date"]];
+      obj.expected_delivery_date = gd1[0][itmobj1["expected_delivery_date"]];
+      obj.plan_to = gd1[0][itmobj1["expected_delivery_date"]];
       validateBeforeJumpProductRequestManagement([obj.order_cd]).then((response)=>{
         
         response = JSON.parse(response.trim());
@@ -404,16 +614,22 @@ $("#cust_btn5").on("click", function () {
                 }
                 
                 localStorage.setItem("productionPlan", JSON.stringify(obj));
-                parent.$(".right-menu1 #M000002340_li .ui-closable-tab").trigger("click"); // M000002378
-                parent.$(".left-menu #M000002340").trigger("click");
+                //parent.$(".right-menu1 #M000002340_li .ui-closable-tab").trigger("click"); // M000002378
+                //parent.$(".left-menu #M000002340").trigger("click");
+                //2023.07.05 이종필 기존버전에서 리뉴얼 버전으로 Jump되도록 변경
+                parent.$(".right-menu1 #M000002435_li .ui-closable-tab").trigger("click"); // M000002378
+                parent.$(".left-menu #M000002435").trigger("click");
                 // parent.$(".left-menu #M000002378").trigger("click");
             }
             
                 
         }else{
                 localStorage.setItem("productionPlan", JSON.stringify(obj));
-                parent.$(".right-menu1 #M000002340_li .ui-closable-tab").trigger("click"); // M000002378
-                parent.$(".left-menu #M000002340").trigger("click");
+                //parent.$(".right-menu1 #M000002340_li .ui-closable-tab").trigger("click"); // M000002378
+                //parent.$(".left-menu #M000002340").trigger("click");
+                //2023.07.05 이종필 기존버전에서 리뉴얼 버전으로 Jump되도록 변경
+                parent.$(".right-menu1 #M000002435_li .ui-closable-tab").trigger("click"); // M000002378
+                parent.$(".left-menu #M000002435").trigger("click");
                 // parent.$(".left-menu #M000002378").trigger("click");
         }
           
@@ -423,7 +639,7 @@ $("#cust_btn5").on("click", function () {
      
       
   } else {
-    msg("품목을 선택하십시오!", null, "N");
+    msg("한 건만 선택하십시오!", null, "N");
     if ($("#msgconfirm").is(":visible")) {
       $("#msgconfirm").dialog("destroy");
     }
@@ -458,7 +674,7 @@ if (estimateGrid1 && estimateGrid11) {
 }
 
 //handle jump to invoice
-$("#cust_btn6").on("click", function () {
+$("#cust_btn8").on("click", function () {
   var gd1 = grid1.getCheckedRows();
   var gd11 = grid1_1.getCheckedRows();
   if (gd1.length === 1 && gd11.length > 0) {
@@ -500,6 +716,14 @@ $("#cust_btn6").on("click", function () {
         return false;
       }
       
+      if (gd11[i][itmobj2["progress_status"]] == "created") {
+            msg(`승인된 건만 처리가능합니다.`, null, "N");
+            if ($("#msgconfirm").is(":visible")) {
+              $("#msgconfirm").dialog("destroy");
+            }
+            return false;
+        }
+      
       if (nvl(gd11[i][itmobj2["progress_status"]], "") == "completed") {
         msg(`제품 ${gd11[i][itmobj2["item_cd"]]} 가 완료되었습니다.`, null, "N");
         if ($("#msgconfirm").is(":visible")) {
@@ -539,3 +763,6 @@ $("#cust_btn6").on("click", function () {
     return false;
   }
 });
+
+$(".editer-content2 #grid1 .tui-grid-lside-area .tui-grid-summary-area tr:first td:last").html(`<span style="font-weight:bold">합계</span>`);
+$(".editer-content2 #grid1_1 .tui-grid-lside-area .tui-grid-summary-area tr:first td:last").html(`<span style="font-weight:bold">합계</span>`);

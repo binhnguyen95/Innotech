@@ -9,6 +9,9 @@ select {project_ser} as project_ser
      , (case
         when (select count(*) from tb_sl_order_detail dt where dt.progress_status = 'completed' and a.order_cd = dt.order_cd) = (select count(*) from tb_sl_order_detail dt where a.order_cd = dt.order_cd) 
 	    then concat('<span class="form-circle-sm" style="background-color:#0063B2;"><span style="color:white;">', '완료', '</span</span>')
+	    
+	    when (select count(*) from tb_sl_order_detail dt where dt.progress_status = 'confirmed' and a.order_cd = dt.order_cd) = (select count(*) from tb_sl_order_detail dt where a.order_cd = dt.order_cd) 
+	    then concat('<span class="form-circle-sm" style="background-color:#006400;"><span style="color:white;">', '승인', '</span</span>')
      
         when (select count(*) from tb_sl_order_detail dt where dt.progress_status = 'in_progress' and a.order_cd = dt.order_cd) > 0
         or (select count(*) from tb_sl_order_detail dt where dt.progress_status = 'completed' and a.order_cd = dt.order_cd) > 0
