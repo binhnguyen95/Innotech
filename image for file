@@ -1,0 +1,24 @@
+const file_img = "/resources/images/file_icon_detail.png";
+$(`td[data-column-name=${itmobj1["order_file"]}]`).each(function(i, obj) {
+    let html = "";
+    let doc_file = $(obj).find(".tui-grid-cell-content").text().trim();
+    if (doc_file) {
+        try {
+            doc_file = JSON.parse(decodeURIComponent(doc_file));
+            for (let i = 0; i < doc_file.length; i++) {
+            html += `<a target="_blank" href="/file/${doc_file[i].newfilename}">
+                    <img src="${file_img}" />
+                </a>`;
+            }
+        } catch (e) {
+            doc_file = doc_file.split("@@@")[0]
+            html = `<a target="_blank" href="${doc_file}">
+                <img src="${file_img}" />
+            </a>`;
+            
+        }
+    }
+    if (nvl(html,"") !== "") {
+        $(obj).find(".tui-grid-cell-content").html(html);
+    }
+});

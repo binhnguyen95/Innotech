@@ -139,6 +139,8 @@
                                     if (!sqlValues.equals("")) { sqlValues += ", "; }
                                     if (key.equals("use_yn") && value.equals("NULL")) {
                                        sqlValues += "'Y'"; 
+                                    } else if (key.equals("status") && value.equals("NULL")) {
+                                        sqlValues += "'new'";
                                     } else if (key.equals("manager_id") && value.equals("NULL")) {
                                         sqlValues += "'" + UID + "'";
                                     } else {
