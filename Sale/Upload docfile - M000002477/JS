@@ -1,0 +1,78 @@
+$("#save_btn").hide();
+$("#search_btn").hide();
+$("#reset_btn").hide();
+$("#del_btn").hide();
+$(".action-btn").hide();
+
+const DUMMY1 = parent.$("#DUMMY1").val();
+const DUMMY2 = parent.$("#DUMMY2").val();
+const DUMMY3 = parent.$("#DUMMY3").val();
+const order_cd_cd = parent.$("#DUMMY4").val();
+parent.$("#DUMMY1").val("");
+parent.$("#DUMMY2").val("");
+parent.$("#DUMMY3").val("");
+parent.$("#DUMMY4").val("");
+if (nvl(DUMMY1,"") != "" && nvl(DUMMY2,"") != "" && nvl(DUMMY3,"") != "") {
+    $(`#${itmobj1["comp_cd"]}`).val(DUMMY1);
+    $(`#${itmobj1["factory_cd"]}`).val(DUMMY2);
+    $(`#${itmobj1["order_cd"]}`).val(DUMMY3);
+    $(`#${itmobj1["use_yn"]}`).val("Y");
+    $("#search_btn").trigger("click")
+}
+
+$("#cust_btn1").on("click", function() {
+    if (nvl(DUMMY3,"") == "") {
+        var dataPost = {};
+        dataPost.type = "generate_cd";
+        dataPost.menucode = "M000002477";
+        dataPost.UID = nvl($("#UID").val(),"");
+        $.ajax({
+          type: "POST",
+          dataType: "JSON",
+          url: "/ajax.do",
+          data: dataPost,
+          success: function (response, status, request) {
+            if (status === "success") {
+                $(`#${itmobj1["order_cd"]}`).val(response.order_cd);
+                $("#save_btn").trigger("click")
+            }
+          },
+          error: function (xmlHttpRequest, txtStatus, errorThrown) {},
+        });
+    } else {
+        $("#save_btn").trigger("click")
+    }
+})
+
+$("#cust_btn2").on("click", function() {
+    parent.$("#NMODModal").dialog("destroy");
+})
+
+$("#SAVE_AFTER_JS, #EDIT_AFTER_JS").change(function () {
+  if ($(this).val() == "Y") {
+    $(this).val("N");
+    const file_img = "/resources/images/file_icon_detail.png";
+    let doc_file = grid1.getValue(0, itmobj1["order_file"]);
+    let html = "";
+    if (doc_file) {
+        try {
+            doc_file = JSON.parse(decodeURIComponent(doc_file));
+            for (let i = 0; i < doc_file.length; i++) {
+            html += `<a target="_blank" href="/file/${doc_file[i].newfilename}">
+                    <img src="${file_img}" />
+                </a>`;
+            }
+        } catch (e) {
+            doc_file = doc_file.split("@@@")[0]
+            html = `<a target="_blank" href="${doc_file}">
+                <img src="${file_img}" />
+            </a>`;
+            
+        }
+    }
+    parent.$(".order_file_preview").html(html);
+    const order_cd = grid1.getValue(0, itmobj1["order_cd"]);
+    parent.$(`#${order_cd_cd}`).val(order_cd);
+    parent.$("#NMODModal").dialog("destroy");
+  }
+});

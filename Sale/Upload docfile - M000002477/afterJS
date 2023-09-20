@@ -1,0 +1,2 @@
+const rows = grid1.getRows();
+if(rows.length > 0) grid1.check(0)
