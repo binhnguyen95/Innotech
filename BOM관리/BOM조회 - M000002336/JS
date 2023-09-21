@@ -125,13 +125,13 @@ $("#cust_btn4").on("click", function () {
 })
 
 
-grid1.on("dblclick", function (ev) {
-  // 그리드 숫자 더블클릭 시 수정창 열리기
-  if (nvl(ev.rowKey + "", "") !== "") {
-    grid1.check(ev.rowKey);
-    $("#cust_btn2").trigger("click");
-  }
-});
+// grid1.on("dblclick", function (ev) {
+//   // 그리드 숫자 더블클릭 시 수정창 열리기
+//   if (nvl(ev.rowKey + "", "") !== "") {
+//     grid1.check(ev.rowKey);
+//     $("#cust_btn2").trigger("click");
+//   }
+// });
 
 
 var header_prod_item_cd_column = grid1.getColumns()[grid1.getIndexOfColumn(itmobj1["prod_item_cd"])];
@@ -163,6 +163,11 @@ prod_item_cd_column.onAfterChange = function(event){
 
 var c_item_cd_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["c_item_cd"])];
 c_item_cd_column.onBeforeChange = function(event){
+    const status = grid1_1.getValue(event.rowKey, itmobj2["status"]);
+    if (status && status !== "new"){
+        event.stop();
+        alert("이 콘텐츠는 편집할 수 없습니다.");
+    }
     if (nvl(event.value,"") !== "") {
         if (event.value === grid1_1.getValue(event.rowKey, itmobj2["p_item_cd"]) || event.value === grid1_1.getValue(event.rowKey, itmobj2["prod_item_cd"])) {
             event.stop();
@@ -170,13 +175,23 @@ c_item_cd_column.onBeforeChange = function(event){
         const rows = grid1_1.getRows();
         for (let i = 0; i < rows.length; i++) {
             if (nvl(event.value,"") !== "" && rows[i][itmobj2["c_item_cd"]] == event.value) {
-                msg("해당 품목은  BOM에서 등록되었습니다!", null, "N");
+                msg("해당 품목은 BOM에서 등록되었습니다!", null, "N");
                 event.stop();
                 break;
             }
         }
     }
 };
+
+var detail_qty_column = grid1_1.getColumns()[grid1_1.getIndexOfColumn(itmobj2["qty"])];
+detail_qty_column.onBeforeChange = function (event) {
+    const status = grid1_1.getValue(event.rowKey, itmobj2["status"]);
+    if (status && status !== "new"){
+        event.stop();
+        alert("이 콘텐츠는 편집할 수 없습니다.");
+    }
+};
+
 
 //handle multi checked header or multi modify header
 grid1.on("check", function(event) {
